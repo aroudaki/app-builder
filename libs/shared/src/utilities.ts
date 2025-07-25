@@ -49,7 +49,7 @@ export function createSnapshot(
     version: number = 1
 ): ConversationSnapshot {
     const { events: contextEvents, ...serializableContext } = context;
-    
+
     return {
         conversationId,
         version,

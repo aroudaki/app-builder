@@ -51,7 +51,7 @@ app.get('/agent/info', (req, res) => {
 // WebSocket connection handling
 wss.on('connection', (ws, req) => {
     console.log(`🔗 New WebSocket connection from ${req.socket.remoteAddress}`);
-    
+
     // Use the simplified handler
     agentHandler.handleConnection(ws);
 });

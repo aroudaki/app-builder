@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { AgUiEvent, AgUiEventType } from '@shared/index.js';
+import { AgUiEvent, EventType } from '@shared/index.js';
 
 /**
  * AG-UI State Machine States
@@ -8,9 +8,9 @@ export type AgUiState =
     | 'idle'          // Not connected or no active conversation
     | 'connecting'    // Establishing WebSocket connection
     | 'connected'     // Connected and ready to receive messages
-    | 'processing'    // Server is processing a request
+    | 'running'       // Server is processing a request (RUN_STARTED)
+    | 'streaming'     // Receiving streaming content
     | 'waiting'       // Waiting for user response
-    | 'rendering'     // Displaying content (wireframe, preview, etc.)
     | 'complete'      // Session completed successfully
     | 'error'         // Error state
     | 'disconnected'; // Connection lost
@@ -22,8 +22,8 @@ export interface AgUiContext {
     conversationId: string | null;
     currentEvent: AgUiEvent | null;
     events: AgUiEvent[];
-    progress: { stage: string; percentage: number } | null;
-    error: { message: string; recoverable: boolean } | null;
+    messages: Array<{id: string, role: string, content: string, streaming?: boolean}>;
+    error: string | null;
     isConnected: boolean;
     reconnectAttempt: number;
 }
@@ -34,8 +34,7 @@ export interface AgUiContext {
 export interface AgUiActions {
     connect: () => void;
     disconnect: () => void;
-    sendMessage: (content: any) => void;
-    sendResponse: (content: any) => void;
+    sendMessage: (content: string) => void;
     clearError: () => void;
     reset: () => void;
 }
@@ -48,45 +47,135 @@ export type AgUiEventHandler = (event: AgUiEvent, context: AgUiContext) => Parti
 /**
  * Default event handlers for state transitions
  */
-const defaultEventHandlers: Record<AgUiEventType, AgUiEventHandler> = {
-    [AgUiEventType.TEXT_MESSAGE_CONTENT]: (event, context) => ({
+const defaultEventHandlers: Record<EventType, AgUiEventHandler> = {
+    [EventType.TEXT_MESSAGE_START]: (event, context) => {
+        if ('messageId' in event && 'role' in event) {
+            const newMessage = {
+                id: event.messageId,
+                role: event.role,
+                content: '',
+                streaming: true
+            };
+            return {
+                currentEvent: event,
+                events: [...context.events, event],
+                messages: [...context.messages, newMessage]
+            };
+        }
+        return { currentEvent: event, events: [...context.events, event] };
+    },
+
+    [EventType.TEXT_MESSAGE_CONTENT]: (event, context) => {
+        if ('messageId' in event && 'delta' in event) {
+            const updatedMessages = context.messages.map(msg => 
+                msg.id === event.messageId 
+                    ? { ...msg, content: msg.content + event.delta }
+                    : msg
+            );
+            return {
+                currentEvent: event,
+                events: [...context.events, event],
+                messages: updatedMessages
+            };
+        }
+        return { currentEvent: event, events: [...context.events, event] };
+    },
+
+    [EventType.TEXT_MESSAGE_END]: (event, context) => {
+        if ('messageId' in event) {
+            const updatedMessages = context.messages.map(msg => 
+                msg.id === event.messageId 
+                    ? { ...msg, streaming: false }
+                    : msg
+            );
+            return {
+                currentEvent: event,
+                events: [...context.events, event],
+                messages: updatedMessages
+            };
+        }
+        return { currentEvent: event, events: [...context.events, event] };
+    },
+
+    [EventType.TOOL_CALL_START]: (event, context) => ({
         currentEvent: event,
         events: [...context.events, event]
     }),
 
-    [AgUiEventType.PROGRESS]: (event, context) => ({
-        currentEvent: event,
-        events: [...context.events, event],
-        progress: event.payload
-    }),
-
-    [AgUiEventType.RENDER_CONTENT]: (event, context) => ({
+    [EventType.TOOL_CALL_ARGS]: (event, context) => ({
         currentEvent: event,
         events: [...context.events, event]
     }),
 
-    [AgUiEventType.RENDER_URL]: (event, context) => ({
+    [EventType.TOOL_CALL_RESULT]: (event, context) => ({
         currentEvent: event,
         events: [...context.events, event]
     }),
 
-    [AgUiEventType.REQUIRE_USER_RESPONSE]: (event, context) => ({
+    [EventType.TOOL_CALL_END]: (event, context) => ({
         currentEvent: event,
         events: [...context.events, event]
     }),
 
-    [AgUiEventType.SESSION_COMPLETE]: (event, context) => ({
+    [EventType.RUN_STARTED]: (event, context) => ({
         currentEvent: event,
-        events: [...context.events, event],
-        progress: null
+        events: [...context.events, event]
     }),
 
-    [AgUiEventType.ERROR]: (event, context) => ({
+    [EventType.RUN_FINISHED]: (event, context) => ({
         currentEvent: event,
-        events: [...context.events, event],
-        error: event.payload,
-        progress: null
-    })
+        events: [...context.events, event]
+    }),
+
+    [EventType.ERROR]: (event, context) => {
+        const errorMessage = 'error' in event ? event.error : 'Unknown error';
+        return {
+            currentEvent: event,
+            events: [...context.events, event],
+            error: errorMessage
+        };
+    },
+
+    [EventType.RETRY]: (event, context) => ({
+        currentEvent: event,
+        events: [...context.events, event]
+    }),
+
+    [EventType.STEP_START]: (event, context) => ({
+        currentEvent: event,
+        events: [...context.events, event]
+    }),
+
+    [EventType.STEP_END]: (event, context) => ({
+        currentEvent: event,
+        events: [...context.events, event]
+    }),
+
+    [EventType.STATE_SNAPSHOT]: (event, context) => ({
+        currentEvent: event,
+        events: [...context.events, event]
+    }),
+
+    [EventType.STATE_DELTA]: (event, context) => ({
+        currentEvent: event,
+        events: [...context.events, event]
+    }),
+
+    [EventType.MESSAGES_SNAPSHOT]: (event, context) => {
+        if ('messages' in event) {
+            return {
+                currentEvent: event,
+                events: [...context.events, event],
+                messages: event.messages.map(msg => ({
+                    id: msg.id,
+                    role: msg.role,
+                    content: msg.content || '',
+                    streaming: false
+                }))
+            };
+        }
+        return { currentEvent: event, events: [...context.events, event] };
+    }
 };
 
 /**
@@ -94,7 +183,7 @@ const defaultEventHandlers: Record<AgUiEventType, AgUiEventHandler> = {
  */
 export function useAgUiStateMachine(
     initialState: AgUiState = 'idle',
-    eventHandlers: Partial<Record<AgUiEventType, AgUiEventHandler>> = {}
+    eventHandlers: Partial<Record<EventType, AgUiEventHandler>> = {}
 ) {
     // Merge default and custom event handlers
     const handlers = { ...defaultEventHandlers, ...eventHandlers };
@@ -107,7 +196,7 @@ export function useAgUiStateMachine(
         conversationId: null,
         currentEvent: null,
         events: [],
-        progress: null,
+        messages: [],
         error: null,
         isConnected: false,
         reconnectAttempt: 0
@@ -120,8 +209,8 @@ export function useAgUiStateMachine(
         console.log(`🎯 Handling ${event.type} event in state: ${state}`);
 
         // Update conversation ID if not set
-        if (!context.conversationId && event.sessionId) {
-            setContext(prev => ({ ...prev, conversationId: event.sessionId }));
+        if (!context.conversationId && event.conversationId) {
+            setContext(prev => ({ ...prev, conversationId: event.conversationId }));
         }
 
         // Handle the event with appropriate handler
@@ -133,30 +222,28 @@ export function useAgUiStateMachine(
 
         // State transitions based on event type
         switch (event.type) {
-            case AgUiEventType.TEXT_MESSAGE_CONTENT:
-                if (state === 'connected' || state === 'idle') {
-                    setState('processing');
-                }
+            case EventType.RUN_STARTED:
+                setState('running');
                 break;
 
-            case AgUiEventType.PROGRESS:
-                setState('processing');
+            case EventType.TEXT_MESSAGE_START:
+            case EventType.TEXT_MESSAGE_CONTENT:
+            case EventType.TOOL_CALL_START:
+            case EventType.TOOL_CALL_ARGS:
+            case EventType.TOOL_CALL_RESULT:
+                setState('streaming');
                 break;
 
-            case AgUiEventType.RENDER_CONTENT:
-            case AgUiEventType.RENDER_URL:
-                setState('rendering');
+            case EventType.TEXT_MESSAGE_END:
+            case EventType.TOOL_CALL_END:
+                // Stay in streaming state until run finishes
                 break;
 
-            case AgUiEventType.REQUIRE_USER_RESPONSE:
-                setState('waiting');
-                break;
-
-            case AgUiEventType.SESSION_COMPLETE:
+            case EventType.RUN_FINISHED:
                 setState('complete');
                 break;
 
-            case AgUiEventType.ERROR:
+            case EventType.ERROR:
                 setState('error');
                 break;
         }
@@ -194,7 +281,7 @@ export function useAgUiStateMachine(
             conversationId: null,
             currentEvent: null,
             events: [],
-            progress: null,
+            messages: [],
             error: null,
             isConnected: false,
             reconnectAttempt: 0
@@ -202,20 +289,11 @@ export function useAgUiStateMachine(
     }, []);
 
     /**
-     * Sends a message (triggers processing state)
+     * Sends a message (triggers running state)
      */
     const sendMessage = useCallback(() => {
         if (state === 'connected' || state === 'complete') {
-            setState('processing');
-        }
-    }, [state]);
-
-    /**
-     * Sends a response (triggers processing state)
-     */
-    const sendResponse = useCallback(() => {
-        if (state === 'waiting') {
-            setState('processing');
+            setState('running');
         }
     }, [state]);
 
@@ -224,7 +302,6 @@ export function useAgUiStateMachine(
      */
     const actions: Omit<AgUiActions, 'connect' | 'disconnect'> = {
         sendMessage,
-        sendResponse,
         clearError,
         reset
     };
@@ -242,7 +319,7 @@ export function useAgUiStateMachine(
  * Helper function to determine if the state machine is in a busy state
  */
 export function isBusyState(state: AgUiState): boolean {
-    return ['connecting', 'processing'].includes(state);
+    return ['connecting', 'running', 'streaming'].includes(state);
 }
 
 /**
@@ -267,9 +344,9 @@ export function getStateDescription(state: AgUiState): string {
         idle: 'Ready to start',
         connecting: 'Connecting to server...',
         connected: 'Connected and ready',
-        processing: 'Processing your request...',
+        running: 'Processing your request...',
+        streaming: 'Receiving response...',
         waiting: 'Waiting for your response',
-        rendering: 'Displaying results',
         complete: 'Task completed',
         error: 'An error occurred',
         disconnected: 'Connection lost'
