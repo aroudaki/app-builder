@@ -1,5 +1,10 @@
-/node_modules
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
 /dist
+**/dist/
 /.turbo
 /nx-cache
 .DS_Store
