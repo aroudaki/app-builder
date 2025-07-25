@@ -8,9 +8,9 @@ export function generateUUID(): string {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
         return crypto.randomUUID();
     }
-    
+
     // Fallback implementation
-    return 'xxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    return 'xxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
         const r = Math.random() * 16 | 0;
         const v = c === 'x' ? r : (r & 0x3 | 0x8);
         return v.toString(16);
@@ -89,15 +89,15 @@ export function deepClone<T>(obj: T): T {
     if (obj === null || typeof obj !== 'object') {
         return obj;
     }
-    
+
     if (obj instanceof Date) {
         return new Date(obj.getTime()) as unknown as T;
     }
-    
+
     if (obj instanceof Array) {
         return obj.map(item => deepClone(item)) as unknown as T;
     }
-    
+
     if (typeof obj === 'object') {
         const cloned = {} as T;
         for (const key in obj) {
@@ -107,7 +107,7 @@ export function deepClone<T>(obj: T): T {
         }
         return cloned;
     }
-    
+
     return obj;
 }
 
@@ -118,7 +118,7 @@ export function sanitizeInput(input: string): string {
     if (typeof input !== 'string') {
         return '';
     }
-    
+
     return input
         .replace(/[<>]/g, '') // Remove angle brackets
         .replace(/javascript:/gi, '') // Remove javascript: protocol
@@ -134,7 +134,7 @@ export function isValidConversationId(id: string): boolean {
     if (typeof id !== 'string') {
         return false;
     }
-    
+
     // Should be a UUID or similar format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     return uuidRegex.test(id) || /^[a-zA-Z0-9_-]{8,64}$/.test(id);
@@ -156,11 +156,11 @@ export function createSafeFilename(input: string): string {
  */
 export function formatFileSize(bytes: number): string {
     if (bytes === 0) return '0 Bytes';
-    
+
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
+
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
@@ -172,7 +172,7 @@ export function debounce<T extends (...args: any[]) => any>(
     delay: number
 ): (...args: Parameters<T>) => void {
     let timeoutId: NodeJS.Timeout;
-    
+
     return (...args: Parameters<T>) => {
         clearTimeout(timeoutId);
         timeoutId = setTimeout(() => func.apply(null, args), delay);
@@ -195,21 +195,21 @@ export async function retryWithBackoff<T>(
     baseDelay: number = 1000
 ): Promise<T> {
     let lastError: Error;
-    
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
             return await fn();
         } catch (error) {
             lastError = error as Error;
-            
+
             if (attempt === maxRetries) {
                 throw lastError;
             }
-            
+
             const delayMs = baseDelay * Math.pow(2, attempt);
             await delay(delayMs);
         }
     }
-    
+
     throw lastError!;
 }

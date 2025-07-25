@@ -1,11 +1,11 @@
-import { 
-    generateUUID, 
-    getTimestamp, 
-    createSnapshot, 
-    AgUiEventType, 
+import {
+    generateUUID,
+    getTimestamp,
+    createSnapshot,
+    AgUiEventType,
     ClientMessage,
     sanitizeInput,
-    isValidConversationId 
+    isValidConversationId
 } from './index.js';
 
 /**

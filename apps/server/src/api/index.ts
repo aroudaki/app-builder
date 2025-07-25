@@ -1,10 +1,10 @@
 import { WebSocket } from 'ws';
-import { 
-    ClientMessage, 
-    AgUiEventType, 
-    AgUiEvent, 
-    generateUUID, 
-    getTimestamp 
+import {
+    ClientMessage,
+    AgUiEventType,
+    AgUiEvent,
+    generateUUID,
+    getTimestamp
 } from '@shared/index.js';
 
 export async function handleWebSocketMessage(ws: WebSocket, message: ClientMessage): Promise<void> {
