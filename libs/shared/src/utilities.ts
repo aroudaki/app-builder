@@ -1,4 +1,19 @@
-import { ConversationSnapshot, Context, AgUiEvent } from './types.js';
+import { Context, AgUiEvent } from './types.js';
+
+/**
+ * Interface for conversation snapshots
+ */
+export interface ConversationSnapshot {
+    conversationId: string;
+    version: number;
+    timestamp: string;
+    context: Omit<Context, 'events'>;
+    events: AgUiEvent[];
+    artifacts: {
+        wireframe?: string;
+        generatedFiles?: Record<string, string>;
+    };
+}
 
 /**
  * Generates a UUID v4 string
@@ -33,15 +48,13 @@ export function createSnapshot(
     events: AgUiEvent[],
     version: number = 1
 ): ConversationSnapshot {
+    const { events: contextEvents, ...serializableContext } = context;
+    
     return {
         conversationId,
         version,
         timestamp: getTimestamp(),
-        context: {
-            ...context,
-            // Remove EventEmitter from context for serialization
-            events: undefined as any
-        },
+        context: serializableContext,
         events,
         artifacts: {
             wireframe: context.wireframe,

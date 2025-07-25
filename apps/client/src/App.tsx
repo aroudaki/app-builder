@@ -5,7 +5,7 @@ import './App.css'
 function App() {
     const [messageInput, setMessageInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    
+
     // Initialize AG-UI
     const {
         state,
@@ -19,7 +19,7 @@ function App() {
     // Handle sending messages
     const handleSendMessage = useCallback(async () => {
         if (!messageInput.trim() || !isConnected) return;
-        
+
         try {
             setIsLoading(true);
             await sendMessage({
@@ -80,7 +80,7 @@ function App() {
     // Render input area
     const renderInput = () => {
         const canSend = isConnected && !isLoading && messageInput.trim();
-        
+
         return (
             <div className="space-y-4">
                 <div className="space-y-2">

@@ -1,142 +1,236 @@
 import { EventEmitter } from 'events';
 
-// AG-UI Protocol Event Types
-export enum AgUiEventType {
-    TEXT_MESSAGE_CONTENT = 'TEXT_MESSAGE_CONTENT',
-    RENDER_CONTENT = 'RENDER_CONTENT',
-    RENDER_URL = 'RENDER_URL',
-    REQUIRE_USER_RESPONSE = 'REQUIRE_USER_RESPONSE',
-    SESSION_COMPLETE = 'SESSION_COMPLETE',
-    ERROR = 'ERROR',
-    PROGRESS = 'PROGRESS'
+// AG-UI Protocol Types - Official Event System
+export enum EventType {
+  TEXT_MESSAGE_START = 'TEXT_MESSAGE_START',
+  TEXT_MESSAGE_CONTENT = 'TEXT_MESSAGE_CONTENT', 
+  TEXT_MESSAGE_END = 'TEXT_MESSAGE_END',
+  TOOL_CALL_START = 'TOOL_CALL_START',
+  TOOL_CALL_ARGS = 'TOOL_CALL_ARGS',
+  TOOL_CALL_RESULT = 'TOOL_CALL_RESULT',
+  TOOL_CALL_END = 'TOOL_CALL_END',
+  ERROR = 'ERROR',
+  RETRY = 'RETRY',
+  STEP_START = 'STEP_START',
+  STEP_END = 'STEP_END',
+  RUN_STARTED = 'RUN_STARTED',
+  RUN_FINISHED = 'RUN_FINISHED',
+  STATE_SNAPSHOT = 'STATE_SNAPSHOT',
+  STATE_DELTA = 'STATE_DELTA',
+  MESSAGES_SNAPSHOT = 'MESSAGES_SNAPSHOT'
 }
 
-// Event Payload Types
-export interface EventPayloads {
-    [AgUiEventType.TEXT_MESSAGE_CONTENT]: { text: string };
-    [AgUiEventType.RENDER_CONTENT]: { html: string; type: 'wireframe' | 'preview' };
-    [AgUiEventType.RENDER_URL]: { url: string; title?: string };
-    [AgUiEventType.REQUIRE_USER_RESPONSE]: { questions: Question[] };
-    [AgUiEventType.SESSION_COMPLETE]: { success: boolean };
-    [AgUiEventType.ERROR]: { message: string; recoverable: boolean };
-    [AgUiEventType.PROGRESS]: { stage: string; percentage: number };
+// AG-UI Base Event Interface
+export interface BaseEvent {
+  type: EventType;
+  conversationId: string;
+  timestamp: number;
 }
 
-// Generic AG-UI Event Interface
-export interface AgUiEvent<T = any> {
-    sessionId: string;
-    eventId: string;
-    timestamp: string;
-    type: AgUiEventType;
-    payload: T;
+// AG-UI Message Event Interfaces
+export interface TextMessageStartEvent extends BaseEvent {
+  type: EventType.TEXT_MESSAGE_START;
+  messageId: string;
+  role: 'user' | 'assistant' | 'system' | 'tool';
 }
 
-// Client Message Interface
-export interface ClientMessage {
-    type: 'user_message' | 'user_response';
-    messageId: string;
-    conversationId: string | null;
-    clientState: any;
-    content: any;
+export interface TextMessageContentEvent extends BaseEvent {
+  type: EventType.TEXT_MESSAGE_CONTENT;
+  messageId: string;
+  delta: string;
 }
 
-// Agent Execution Context
-export interface Context {
-    conversationId: string;
-    events: EventEmitter;
-    isFirstRequest: boolean;
-    userInput: string;
-    requirements?: string;
-    wireframe?: string;
-    generatedCode?: Record<string, string>;
-    lastError?: {
-        agent: string;
-        error: string;
-        timestamp: string;
-    };
-    retryCount?: number;
+export interface TextMessageEndEvent extends BaseEvent {
+  type: EventType.TEXT_MESSAGE_END;
+  messageId: string;
 }
 
-// Agent Configuration
-export interface AgentConfig {
+// AG-UI Tool Call Event Interfaces
+export interface ToolCallStartEvent extends BaseEvent {
+  type: EventType.TOOL_CALL_START;
+  messageId: string;
+  toolCallId: string;
+  toolName: string;
+}
+
+export interface ToolCallArgsEvent extends BaseEvent {
+  type: EventType.TOOL_CALL_ARGS;
+  messageId: string;
+  toolCallId: string;
+  args: Record<string, any>;
+}
+
+export interface ToolCallResultEvent extends BaseEvent {
+  type: EventType.TOOL_CALL_RESULT;
+  messageId: string;
+  toolCallId: string;
+  result: any;
+}
+
+export interface ToolCallEndEvent extends BaseEvent {
+  type: EventType.TOOL_CALL_END;
+  messageId: string;
+  toolCallId: string;
+}
+
+// AG-UI Control Event Interfaces
+export interface RunStartedEvent extends BaseEvent {
+  type: EventType.RUN_STARTED;
+}
+
+export interface RunFinishedEvent extends BaseEvent {
+  type: EventType.RUN_FINISHED;
+}
+
+export interface ErrorEvent extends BaseEvent {
+  type: EventType.ERROR;
+  error: string;
+}
+
+export interface StateSnapshotEvent extends BaseEvent {
+  type: EventType.STATE_SNAPSHOT;
+  state: Record<string, any>;
+}
+
+export interface StateDeltaEvent extends BaseEvent {
+  type: EventType.STATE_DELTA;
+  delta: any[]; // JSON Patch operations
+}
+
+export interface MessagesSnapshotEvent extends BaseEvent {
+  type: EventType.MESSAGES_SNAPSHOT;
+  messages: Message[];
+}
+
+// Union type for all AG-UI events
+export type AgUiEvent = 
+  | TextMessageStartEvent
+  | TextMessageContentEvent
+  | TextMessageEndEvent
+  | ToolCallStartEvent
+  | ToolCallArgsEvent
+  | ToolCallResultEvent
+  | ToolCallEndEvent
+  | RunStartedEvent
+  | RunFinishedEvent
+  | ErrorEvent
+  | StateSnapshotEvent
+  | StateDeltaEvent
+  | MessagesSnapshotEvent;
+
+// AG-UI Message Types
+export interface BaseMessage {
+  id: string;
+  role: string;
+  content?: string;
+  name?: string;
+}
+
+export interface UserMessage extends BaseMessage {
+  role: 'user';
+  content: string;
+}
+
+export interface AssistantMessage extends BaseMessage {
+  role: 'assistant';
+  content?: string;
+  toolCalls?: ToolCall[];
+}
+
+export interface SystemMessage extends BaseMessage {
+  role: 'system';
+  content: string;
+}
+
+export interface ToolMessage extends BaseMessage {
+  role: 'tool';
+  content: string;
+  toolCallId: string;
+}
+
+export type Message = UserMessage | AssistantMessage | SystemMessage | ToolMessage;
+
+// AG-UI Tool Call Structure
+export interface ToolCall {
+  id: string;
+  type: 'function';
+  function: {
     name: string;
-    prompt: string;
-    tools?: Tool[];
-    skipOn?: (context: Context) => boolean;
-    validateOutput?: (output: any) => boolean;
+    arguments: string; // JSON string
+  };
 }
 
-// Conversation Snapshot for Persistence
-export interface ConversationSnapshot {
-    conversationId: string;
-    version: number;
-    timestamp: string;
-    context: Context;
-    events: AgUiEvent[];
-    artifacts?: {
-        wireframe?: string;
-        generatedFiles?: Record<string, string>;
-        deploymentUrl?: string;
-    };
+// AG-UI Input Structure
+export interface RunAgentInput {
+  conversationId: string;
+  messages: Message[];
+  tools?: Tool[];
+  state?: Record<string, any>;
 }
 
-// Question Interface for User Responses
-export interface Question {
-    id: string;
-    text: string;
-    type: 'text' | 'select' | 'multiselect' | 'boolean';
-    options?: string[];
-    required?: boolean;
-}
-
-// Tool Types
+// Tool Definition
 export interface Tool {
-    name: string;
-    description: string;
-    parameters: Record<string, any>;
+  name: string;
+  description: string;
+  parameters: {
+    type: 'object';
+    properties: Record<string, any>;
+    required?: string[];
+  };
 }
 
-export interface ToolResult {
-    success: boolean;
-    data?: any;
-    error?: string;
+// Question Interface for User Interaction
+export interface Question {
+  id: string;
+  text: string;
+  type: 'text' | 'choice' | 'boolean';
+  choices?: string[];
+  required?: boolean;
 }
 
-// Application Generation Types (Legacy - keeping for compatibility)
-export interface AppGenerationRequest {
-    description: string;
-    features?: string[];
-    targetFramework?: 'react' | 'vue' | 'angular';
-    styling?: 'tailwind' | 'css' | 'styled-components';
+// Context Interface for Pipeline Execution
+export interface Context {
+  conversationId: string;
+  events: EventEmitter;
+  isFirstRequest: boolean;
+  userInput: string;
+  messages: Message[];
+  state?: Record<string, any>;
+  requirements?: string;
+  wireframe?: string;
+  generatedCode?: Record<string, string>;
+  lastError?: {
+    agent: string;
+    error: string;
+    timestamp: string;
+  };
+  retryCount?: number;
 }
 
-export interface GeneratedApp {
-    name: string;
-    framework: string;
-    files: GeneratedFile[];
-    packageJson: object;
-    readme: string;
-}
-
-export interface GeneratedFile {
-    path: string;
-    content: string;
-    type: 'component' | 'page' | 'style' | 'config' | 'other';
-}
-
-// Pipeline Types (will be enhanced in Task 6)
+// Pipeline Interface
 export interface Pipeline {
-    id: string;
-    name: string;
-    steps: PipelineStep[];
-    status: 'pending' | 'running' | 'completed' | 'failed';
+  name: string;
+  description: string;
+  run: (context: Context) => Promise<Context>;
 }
 
-export interface PipelineStep {
-    id: string;
-    name: string;
-    agentId: string;
-    dependencies: string[];
-    status: 'pending' | 'running' | 'completed' | 'failed';
-    output?: any;
+// Agent Configuration Interface
+export interface AgentConfig {
+  name: string;
+  description: string;
+  model: string;
+  temperature?: number;
+  tools?: Tool[];
+  systemPrompt?: string;
+}
+
+// Utility Functions Type
+export type UtilityFunction = (input: any) => any;
+
+export interface AppUtilities {
+  generateId: () => string;
+  formatTimestamp: (date: Date) => string;
+  validateInput: (input: any, schema: any) => boolean;
+  sanitizeHtml: (html: string) => string;
+  parseMarkdown: (markdown: string) => string;
 }

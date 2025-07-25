@@ -29,8 +29,8 @@ app.use(express.json());
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-    res.json({ 
-        status: 'ok', 
+    res.json({
+        status: 'ok',
         timestamp: new Date().toISOString(),
         service: 'AI App Generator Server',
         version: '1.0.0'
@@ -52,26 +52,8 @@ app.get('/agent/info', (req, res) => {
 wss.on('connection', (ws, req) => {
     console.log(`🔗 New WebSocket connection from ${req.socket.remoteAddress}`);
     
-    // Handle connection
-    agentHandler.handleConnection(ws, req);
-
-    ws.on('message', async (data) => {
-        try {
-            const message = JSON.parse(data.toString());
-            await agentHandler.handleMessage(ws, message);
-        } catch (error) {
-            console.error('❌ Error parsing WebSocket message:', error);
-            agentHandler.handleError(ws, error as Error);
-        }
-    });
-
-    ws.on('close', (code, reason) => {
-        agentHandler.handleDisconnection(ws, code, reason.toString());
-    });
-
-    ws.on('error', (error) => {
-        agentHandler.handleError(ws, error);
-    });
+    // Use the simplified handler
+    agentHandler.handleConnection(ws);
 });
 
 // Graceful shutdown handling

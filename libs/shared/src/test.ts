@@ -2,8 +2,8 @@ import {
     generateUUID,
     getTimestamp,
     createSnapshot,
-    AgUiEventType,
-    ClientMessage,
+    EventType,
+    RunAgentInput,
     sanitizeInput,
     isValidConversationId
 } from './index.js';
@@ -28,22 +28,27 @@ export function runTests() {
     console.log(`   Timestamp: ${timestamp}`);
     console.log(`   Valid ISO format: ${!isNaN(Date.parse(timestamp))}\n`);
 
-    // Test AgUiEventType enum
-    console.log('✅ Testing AgUiEventType enum');
-    console.log(`   TEXT_MESSAGE_CONTENT: ${AgUiEventType.TEXT_MESSAGE_CONTENT}`);
-    console.log(`   SESSION_COMPLETE: ${AgUiEventType.SESSION_COMPLETE}`);
-    console.log(`   ERROR: ${AgUiEventType.ERROR}\n`);
+    // Test EventType enum
+    console.log('✅ Testing EventType enum');
+    console.log(`   TEXT_MESSAGE_CONTENT: ${EventType.TEXT_MESSAGE_CONTENT}`);
+    console.log(`   RUN_FINISHED: ${EventType.RUN_FINISHED}`);
+    console.log(`   ERROR: ${EventType.ERROR}\n`);
 
-    // Test ClientMessage interface (type checking)
-    console.log('✅ Testing ClientMessage interface');
-    const clientMessage: ClientMessage = {
-        type: 'user_message',
-        messageId: generateUUID(),
+    // Test RunAgentInput interface (type checking)
+    console.log('✅ Testing RunAgentInput interface');
+    const runInput: RunAgentInput = {
         conversationId: generateUUID(),
-        clientState: { step: 1 },
-        content: { text: 'Hello, world!' }
+        messages: [
+            {
+                id: generateUUID(),
+                role: 'user',
+                content: 'Hello, world!'
+            }
+        ],
+        tools: [],
+        state: { step: 1 }
     };
-    console.log(`   Message created: ${JSON.stringify(clientMessage, null, 2)}\n`);
+    console.log(`   Run input created: ${JSON.stringify(runInput, null, 2)}\n`);
 
     // Test sanitizeInput
     console.log('✅ Testing sanitizeInput()');

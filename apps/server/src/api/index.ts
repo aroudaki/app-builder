@@ -1,144 +1,150 @@
 import { WebSocket } from 'ws';
 import {
-    ClientMessage,
-    AgUiEventType,
+    RunAgentInput,
+    EventType,
     AgUiEvent,
     generateUUID,
-    getTimestamp,
-    sanitizeInput
+    Context
 } from '@shared/index.js';
-import { emitEvent, loadContext, persistSnapshot, extractClientState } from '../utils/events.js';
-import { runPipeline } from '../orchestrator/pipeline.js';
+import { emitEvent, loadContext, persistSnapshot, generateId } from '../utils/events.js';
+import { selectPipeline } from '../orchestrator/pipeline.js';
 
 /**
- * Handles incoming WebSocket messages and orchestrates the AG-UI flow
+ * Handles incoming AG-UI WebSocket messages and orchestrates the pipeline flow
  */
-export async function handleWebSocketMessage(ws: WebSocket, message: ClientMessage): Promise<void> {
+export async function handleWebSocketMessage(ws: WebSocket, input: RunAgentInput): Promise<void> {
     const startTime = Date.now();
-    
+
     try {
-        console.log(`📨 Received ${message.type} message:`, {
-            messageId: message.messageId,
-            conversationId: message.conversationId,
-            contentPreview: typeof message.content === 'string' 
-                ? message.content.substring(0, 100) + '...'
-                : JSON.stringify(message.content).substring(0, 100) + '...'
+        console.log(`📨 Received AG-UI input:`, {
+            conversationId: input.conversationId,
+            messageCount: input.messages.length,
+            toolCount: input.tools?.length || 0
         });
 
-        // 1. Load context from client state or storage
-        const context = await loadContext(message.conversationId, message.clientState);
+        // Emit RUN_STARTED event
+        const runStartedEvent: AgUiEvent = {
+            type: EventType.RUN_STARTED,
+            conversationId: input.conversationId,
+            timestamp: Date.now()
+        };
+        emitEvent(ws, runStartedEvent);
+
+        // Load context from state or create new
+        const context = await loadContext(input.state, input.messages);
         
-        // 2. Update context with new user input
-        const userInput = typeof message.content === 'string' 
-            ? message.content 
-            : message.content?.text || JSON.stringify(message.content);
-            
-        const sanitizedInput = sanitizeInput(userInput);
-        
-        const updatedContext = {
+        // Set up event listener to forward AG-UI events to WebSocket
+        context.events.on('aguiEvent', (event: AgUiEvent) => {
+            emitEvent(ws, event);
+        });
+
+        // Update context with input data
+        const updatedContext: Context = {
             ...context,
-            userInput: sanitizedInput,
-            retryCount: context.retryCount || 0
+            conversationId: input.conversationId,
+            messages: input.messages,
+            userInput: input.messages[input.messages.length - 1]?.content || '',
+            state: input.state || {}
         };
 
-        console.log(`🔍 Processing request for conversation: ${updatedContext.conversationId}`);
-        console.log(`📝 User input: "${sanitizedInput}"`);
-        console.log(`🔄 Is first request: ${updatedContext.isFirstRequest}`);
+        // Select and run pipeline
+        const pipeline = selectPipeline(updatedContext);
+        const finalContext = await pipeline.run(updatedContext);
 
-        // Send acknowledgment event
-        emitEvent(ws, {
-            sessionId: updatedContext.conversationId,
-            type: AgUiEventType.TEXT_MESSAGE_CONTENT,
-            payload: { text: `Processing your request: "${sanitizedInput}"` }
-        });
-
-        // 3. Select and run the appropriate pipeline
-        const finalContext = await runPipeline(updatedContext, ws);
-        
-        // 4. Persist snapshot asynchronously (fire-and-forget)
-        const clientState = extractClientState(finalContext);
-        persistSnapshot(finalContext, []).catch(error => {
-            console.error('⚠️  Snapshot persistence failed (non-blocking):', error);
-        });
-
-        // 5. Send completion event with updated client state
-        const completionEvent: AgUiEvent = {
-            sessionId: finalContext.conversationId,
-            eventId: generateUUID(),
-            timestamp: getTimestamp(),
-            type: AgUiEventType.SESSION_COMPLETE,
-            payload: {
-                success: true,
-                clientState,
-                processingTime: Date.now() - startTime
-            }
+        // Emit state snapshot
+        const stateSnapshotEvent: AgUiEvent = {
+            type: EventType.STATE_SNAPSHOT,
+            conversationId: input.conversationId,
+            state: finalContext.state || {},
+            timestamp: Date.now()
         };
+        emitEvent(ws, stateSnapshotEvent);
 
-        ws.send(JSON.stringify(completionEvent));
-        
-        console.log(`✅ Request completed successfully in ${Date.now() - startTime}ms`);
+        // Emit messages snapshot
+        const messagesSnapshotEvent: AgUiEvent = {
+            type: EventType.MESSAGES_SNAPSHOT,
+            conversationId: input.conversationId,
+            messages: finalContext.messages,
+            timestamp: Date.now()
+        };
+        emitEvent(ws, messagesSnapshotEvent);
+
+        // Persist snapshot asynchronously
+        persistSnapshot(finalContext).catch(error => {
+            console.error('Failed to persist snapshot:', error);
+        });
+
+        // Emit RUN_FINISHED event
+        const runFinishedEvent: AgUiEvent = {
+            type: EventType.RUN_FINISHED,
+            conversationId: input.conversationId,
+            timestamp: Date.now()
+        };
+        emitEvent(ws, runFinishedEvent);
+
+        console.log(`✅ Completed AG-UI flow in ${Date.now() - startTime}ms`);
 
     } catch (error) {
-        console.error('❌ Error in handleWebSocketMessage:', error);
+        console.error('❌ Error in AG-UI flow:', error);
 
-        // Create error context for recovery
-        const errorContext = {
-            conversationId: message.conversationId || generateUUID(),
-            lastError: {
-                agent: 'websocket-handler',
-                error: error instanceof Error ? error.message : 'Unknown error',
-                timestamp: getTimestamp()
-            },
-            retryCount: ((message.clientState?.retryCount || 0) + 1)
-        };
-
-        // Send error event with recovery information
+        // Emit error event
         const errorEvent: AgUiEvent = {
-            sessionId: errorContext.conversationId,
-            eventId: generateUUID(),
-            timestamp: getTimestamp(),
-            type: AgUiEventType.ERROR,
-            payload: {
-                message: error instanceof Error ? error.message : 'Unknown error occurred',
-                recoverable: errorContext.retryCount < 3,
-                retryCount: errorContext.retryCount,
-                clientState: extractClientState(errorContext as any)
-            }
+            type: EventType.ERROR,
+            conversationId: input.conversationId,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            timestamp: Date.now()
         };
-
-        try {
-            ws.send(JSON.stringify(errorEvent));
-        } catch (sendError) {
-            console.error('❌ Failed to send error event:', sendError);
-        }
+        emitEvent(ws, errorEvent);
     }
 }
 
 /**
- * Creates an AG-UI compatible WebSocket handler
- * This function provides the interface that matches the architecture document's `createAgentHandler`
+ * Creates a handler for WebSocket upgrade requests
  */
 export function createAgentHandler() {
     return {
-        handleMessage: handleWebSocketMessage,
-        
-        // Additional handler methods for future expansion
-        handleConnection: (ws: WebSocket, request: any) => {
-            console.log(`🔗 New WebSocket connection established`);
+        handleUpgrade: (request: any, socket: any, head: any, callback: (ws: WebSocket) => void) => {
+            // Handle WebSocket upgrade
+            const conversationId = generateUUID();
+            console.log(`🔗 WebSocket connection established for conversation: ${conversationId}`);
             
-            // Send welcome event
-            emitEvent(ws, {
-                type: AgUiEventType.TEXT_MESSAGE_CONTENT,
-                payload: { text: 'Connected to AI App Generator. Send a message to start building your application!' }
+            const ws = new WebSocket(request.url);
+            callback(ws);
+        },
+        
+        handleConnection: (ws: WebSocket) => {
+            ws.on('message', async (data: Buffer) => {
+                try {
+                    const input: RunAgentInput = JSON.parse(data.toString());
+                    await handleWebSocketMessage(ws, input);
+                } catch (error) {
+                    console.error('Failed to parse WebSocket message:', error);
+                    
+                    const errorEvent: AgUiEvent = {
+                        type: EventType.ERROR,
+                        conversationId: 'unknown',
+                        error: 'Invalid message format',
+                        timestamp: Date.now()
+                    };
+                    emitEvent(ws, errorEvent);
+                }
             });
-        },
-        
-        handleDisconnection: (ws: WebSocket, code: number, reason: string) => {
-            console.log(`🔌 WebSocket disconnected - Code: ${code}, Reason: ${reason}`);
-        },
-        
-        handleError: (ws: WebSocket, error: Error) => {
-            console.error('🚨 WebSocket error:', error);
+
+            ws.on('close', () => {
+                console.log('🔌 WebSocket connection closed');
+            });
+
+            ws.on('error', (error) => {
+                console.error('WebSocket error:', error);
+            });
         }
     };
+}
+
+/**
+ * Extract conversation ID from WebSocket request
+ */
+function extractConversationId(request: any): string {
+    const url = new URL(request.url, 'http://localhost');
+    return url.searchParams.get('conversationId') || generateUUID();
 }

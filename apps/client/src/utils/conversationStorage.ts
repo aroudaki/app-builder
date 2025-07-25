@@ -25,12 +25,12 @@ export const ConversationStorage = {
                 timestamp: new Date().toISOString(),
                 lastActivity: new Date().toISOString()
             };
-            
+
             const key = `conversation-${conversationId}`;
             const serialized = JSON.stringify(conversationState);
-            
+
             localStorage.setItem(key, serialized);
-            
+
             console.log(`💾 Saved conversation state for: ${conversationId}`);
         } catch (error) {
             console.error('❌ Failed to save conversation state:', error);
@@ -44,21 +44,21 @@ export const ConversationStorage = {
         try {
             const key = `conversation-${conversationId}`;
             const saved = localStorage.getItem(key);
-            
+
             if (!saved) {
                 console.log(`📂 No saved state found for: ${conversationId}`);
                 return null;
             }
 
             const conversationState: ConversationState = JSON.parse(saved);
-            
+
             // Update last activity
             conversationState.lastActivity = new Date().toISOString();
             localStorage.setItem(key, JSON.stringify(conversationState));
-            
+
             console.log(`📁 Loaded conversation state for: ${conversationId}`);
             return conversationState.clientState;
-            
+
         } catch (error) {
             console.error('❌ Failed to load conversation state:', error);
             return null;
@@ -84,7 +84,7 @@ export const ConversationStorage = {
     listConversations(): ConversationState[] {
         try {
             const conversations: ConversationState[] = [];
-            
+
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
                 if (key?.startsWith('conversation-')) {
@@ -99,12 +99,12 @@ export const ConversationStorage = {
                     }
                 }
             }
-            
+
             // Sort by last activity (most recent first)
-            conversations.sort((a, b) => 
+            conversations.sort((a, b) =>
                 new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime()
             );
-            
+
             return conversations;
         } catch (error) {
             console.error('❌ Failed to list conversations:', error);
@@ -119,10 +119,10 @@ export const ConversationStorage = {
         try {
             const cutoffDate = new Date();
             cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
-            
+
             const conversations = this.listConversations();
             let cleanedCount = 0;
-            
+
             conversations.forEach(conversation => {
                 const lastActivity = new Date(conversation.lastActivity);
                 if (lastActivity < cutoffDate) {
@@ -130,7 +130,7 @@ export const ConversationStorage = {
                     cleanedCount++;
                 }
             });
-            
+
             console.log(`🧹 Cleaned up ${cleanedCount} old conversations`);
             return cleanedCount;
         } catch (error) {
@@ -145,7 +145,7 @@ export const ConversationStorage = {
     getStorageInfo(): { totalConversations: number; storageUsed: string } {
         try {
             const conversations = this.listConversations();
-            
+
             // Calculate approximate storage used by conversations
             let totalBytes = 0;
             conversations.forEach(conversation => {
@@ -155,12 +155,12 @@ export const ConversationStorage = {
                     totalBytes += data.length;
                 }
             });
-            
+
             // Convert bytes to human readable format
-            const storageUsed = totalBytes > 1024 
+            const storageUsed = totalBytes > 1024
                 ? `${(totalBytes / 1024).toFixed(2)} KB`
                 : `${totalBytes} bytes`;
-            
+
             return {
                 totalConversations: conversations.length,
                 storageUsed
@@ -191,10 +191,10 @@ export class ConversationCleanup {
         }
 
         console.log(`🧹 Starting conversation cleanup with ${this.maxAgeDays} day retention`);
-        
+
         // Run immediate cleanup
         ConversationStorage.cleanup(this.maxAgeDays);
-        
+
         // Schedule periodic cleanup
         this.timer = setInterval(() => {
             ConversationStorage.cleanup(this.maxAgeDays);

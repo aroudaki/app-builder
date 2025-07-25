@@ -4,7 +4,7 @@ import { AgUiEvent, AgUiEventType } from '@shared/index.js';
 /**
  * AG-UI State Machine States
  */
-export type AgUiState = 
+export type AgUiState =
     | 'idle'          // Not connected or no active conversation
     | 'connecting'    // Establishing WebSocket connection
     | 'connected'     // Connected and ready to receive messages
@@ -101,7 +101,7 @@ export function useAgUiStateMachine(
 
     // State
     const [state, setState] = useState<AgUiState>(initialState);
-    
+
     // Context
     const [context, setContext] = useState<AgUiContext>({
         conversationId: null,
@@ -167,7 +167,7 @@ export function useAgUiStateMachine(
      */
     const handleConnectionChange = useCallback((isConnected: boolean, reconnectAttempt: number = 0) => {
         setContext(prev => ({ ...prev, isConnected, reconnectAttempt }));
-        
+
         if (isConnected) {
             setState('connected');
         } else {

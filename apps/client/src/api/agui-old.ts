@@ -1,10 +1,8 @@
 import {
-    RunAgentInput,
+    ClientMessage,
     AgUiEvent,
-    Message,
-    Tool,
-    EventType,
-    generateUUID
+    generateUUID,
+    isValidConversationId
 } from '@shared/index.js';
 
 /**
@@ -30,16 +28,14 @@ export interface AgUiEventHandlers {
 }
 
 /**
- * AG-UI Client for WebSocket communication following AG-UI protocol
+ * AG-UI Client for WebSocket communication
  */
 export class AgUiClient {
     private ws: WebSocket | null = null;
     private config: Required<AgUiClientConfig>;
     private handlers: AgUiEventHandlers;
-    private conversationId: string;
-    private messages: Message[] = [];
-    private state: Record<string, any> = {};
-    private tools: Tool[] = [];
+    private conversationId: string | null = null;
+    private clientState: any = {};
     private reconnectTimer: NodeJS.Timeout | null = null;
     private pingTimer: NodeJS.Timeout | null = null;
     private currentReconnectAttempt = 0;
@@ -49,13 +45,16 @@ export class AgUiClient {
     constructor(config: AgUiClientConfig = {}, handlers: AgUiEventHandlers = {}) {
         this.config = {
             wsUrl: config.wsUrl || `ws://localhost:3000`,
-            conversationId: config.conversationId || generateUUID(),
+            conversationId: config.conversationId || '',
             reconnectAttempts: config.reconnectAttempts || 5,
             reconnectDelay: config.reconnectDelay || 2000,
             pingInterval: config.pingInterval || 30000
         };
         this.handlers = handlers;
-        this.conversationId = this.config.conversationId;
+
+        if (this.config.conversationId && isValidConversationId(this.config.conversationId)) {
+            this.conversationId = this.config.conversationId;
+        }
     }
 
     /**
@@ -72,7 +71,7 @@ export class AgUiClient {
         try {
             console.log(`🔗 Connecting to AG-UI server: ${this.config.wsUrl}`);
 
-            this.ws = new WebSocket(`${this.config.wsUrl}?conversationId=${this.conversationId}`);
+            this.ws = new WebSocket(this.config.wsUrl);
 
             this.ws.onopen = () => {
                 console.log('✅ WebSocket connected');
@@ -137,135 +136,83 @@ export class AgUiClient {
     }
 
     /**
-     * Sends a user message using AG-UI protocol
+     * Sends a user message to the server
      */
-    async sendMessage(content: string): Promise<void> {
+    async sendMessage(content: any): Promise<void> {
         if (!this.isConnected()) {
             throw new Error('WebSocket not connected');
         }
 
-        // Add user message to conversation
-        const userMessage: Message = {
-            id: generateUUID(),
-            role: 'user',
-            content: content
-        };
-
-        this.messages.push(userMessage);
-
-        // Create AG-UI input
-        const runInput: RunAgentInput = {
+        const message: ClientMessage = {
+            type: 'user_message',
+            messageId: generateUUID(),
             conversationId: this.conversationId,
-            messages: [...this.messages],
-            tools: this.tools,
-            state: this.state
+            clientState: this.clientState,
+            content
         };
 
-        console.log(`📤 Sending AG-UI input:`, { 
-            conversationId: runInput.conversationId,
-            messageCount: runInput.messages.length,
-            content: content.substring(0, 100) + (content.length > 100 ? '...' : '')
-        });
+        console.log(`📤 Sending message:`, { type: message.type, messageId: message.messageId });
 
-        this.ws!.send(JSON.stringify(runInput));
+        this.ws!.send(JSON.stringify(message));
+    }
+
+    /**
+     * Sends a user response to the server
+     */
+    async sendResponse(content: any): Promise<void> {
+        if (!this.isConnected()) {
+            throw new Error('WebSocket not connected');
+        }
+
+        const message: ClientMessage = {
+            type: 'user_response',
+            messageId: generateUUID(),
+            conversationId: this.conversationId,
+            clientState: this.clientState,
+            content
+        };
+
+        console.log(`📤 Sending response:`, { type: message.type, messageId: message.messageId });
+
+        this.ws!.send(JSON.stringify(message));
     }
 
     /**
      * Gets the current conversation ID
      */
-    getConversationId(): string {
+    getConversationId(): string | null {
         return this.conversationId;
     }
 
     /**
-     * Gets the current messages
+     * Gets the current client state
      */
-    getMessages(): Message[] {
-        return [...this.messages];
+    getClientState(): any {
+        return { ...this.clientState };
     }
 
     /**
-     * Gets the current state
+     * Updates the client state
      */
-    getState(): Record<string, any> {
-        return { ...this.state };
-    }
-
-    /**
-     * Updates the state
-     */
-    updateState(newState: Record<string, any>): void {
-        this.state = { ...this.state, ...newState };
-    }
-
-    /**
-     * Sets available tools
-     */
-    setTools(tools: Tool[]): void {
-        this.tools = [...tools];
+    updateClientState(newState: any): void {
+        this.clientState = { ...this.clientState, ...newState };
     }
 
     /**
      * Handles incoming AG-UI events
      */
     private handleIncomingEvent(event: AgUiEvent): void {
-        console.log(`📥 Received ${event.type} event`);
+        console.log(`📥 Received ${event.type} event:`, event.payload);
 
-        // Handle different event types
-        switch (event.type) {
-            case EventType.STATE_SNAPSHOT:
-                if ('state' in event) {
-                    this.state = event.state;
-                }
-                break;
-                
-            case EventType.MESSAGES_SNAPSHOT:
-                if ('messages' in event) {
-                    this.messages = event.messages;
-                }
-                break;
-                
-            case EventType.TEXT_MESSAGE_START:
-                // Start of a new assistant message
-                if ('messageId' in event && 'role' in event && event.role === 'assistant') {
-                    const assistantMessage: Message = {
-                        id: event.messageId,
-                        role: 'assistant',
-                        content: ''
-                    };
-                    this.messages.push(assistantMessage);
-                }
-                break;
-                
-            case EventType.TEXT_MESSAGE_CONTENT:
-                // Content delta for streaming message
-                if ('messageId' in event && 'delta' in event) {
-                    const messageIndex = this.messages.findIndex(m => m.id === event.messageId);
-                    if (messageIndex !== -1) {
-                        this.messages[messageIndex].content += event.delta;
-                    }
-                }
-                break;
-                
-            case EventType.TEXT_MESSAGE_END:
-                // Message complete
-                console.log('📝 Message completed');
-                break;
-                
-            case EventType.RUN_STARTED:
-                console.log('🚀 Run started');
-                break;
-                
-            case EventType.RUN_FINISHED:
-                console.log('✅ Run finished');
-                break;
-                
-            case EventType.ERROR:
-                if ('error' in event) {
-                    console.error('❌ Server error:', event.error);
-                    this.handlers.onError?.(new Error(event.error));
-                }
-                break;
+        // Update conversation ID if this is the first event
+        if (!this.conversationId && event.sessionId) {
+            this.conversationId = event.sessionId;
+            console.log(`🆔 Set conversation ID: ${this.conversationId}`);
+        }
+
+        // Update client state if provided in the event payload
+        if (event.payload?.clientState) {
+            this.updateClientState(event.payload.clientState);
         }
 
         // Call the event handler
@@ -311,8 +258,8 @@ export class AgUiClient {
     private startPing(): void {
         this.pingTimer = setInterval(() => {
             if (this.isConnected()) {
-                // AG-UI doesn't specify ping format, so we'll skip this for now
-                // Real implementation might use a heartbeat mechanism
+                // Send a ping by sending a small message
+                this.ws!.send(JSON.stringify({ type: 'ping' }));
             }
         }, this.config.pingInterval);
     }

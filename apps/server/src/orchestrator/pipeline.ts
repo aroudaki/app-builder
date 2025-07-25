@@ -1,218 +1,329 @@
-import {
-    Context,
-    AgUiEventType,
-    generateUUID,
-    getTimestamp
-} from '@shared/index.js';
-import { emitEvent } from '../utils/events.js';
-import { WebSocket } from 'ws';
+import { Context, EventType, AgUiEvent, RunAgentInput } from '@shared/index.js';
+import { generateId } from '../utils/events';
 
 /**
- * Mock pipeline for Task 4 - will be replaced with LangGraph in Task 6
+ * Select pipeline based on user input and context
  */
-interface MockPipeline {
-    id: string;
-    name: string;
-    run: (context: Context, ws: WebSocket) => Promise<Context>;
+export function selectPipeline(context: Context): Pipeline {
+  const userInput = context.userInput.toLowerCase();
+  
+  if (userInput.includes('wireframe') || userInput.includes('layout') || userInput.includes('design')) {
+    return wireframePipeline;
+  }
+  
+  if (userInput.includes('code') || userInput.includes('implement') || userInput.includes('build')) {
+    return codePipeline;
+  }
+  
+  return defaultPipeline;
 }
 
 /**
- * Mock implementation of initial app generator pipeline
+ * Pipeline interface
  */
-const mockInitialPipeline: MockPipeline = {
-    id: 'initial-app-generator',
-    name: 'Initial App Generator',
-    
-    async run(context: Context, ws: WebSocket): Promise<Context> {
-        console.log(`🔄 Running initial pipeline for: ${context.conversationId}`);
-        
-        // Simulate pipeline steps with events
-        
-        // Step 1: Clarification
-        emitEvent(ws, {
-            sessionId: context.conversationId,
-            type: AgUiEventType.PROGRESS,
-            payload: { stage: 'clarification', percentage: 25 }
-        });
-        
-        emitEvent(ws, {
-            sessionId: context.conversationId,
-            type: AgUiEventType.TEXT_MESSAGE_CONTENT,
-            payload: { text: 'Thank you for your request! I\'ll help you build your application.' }
-        });
-        
-        // Simulate some processing time
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Step 2: Requirements analysis
-        emitEvent(ws, {
-            sessionId: context.conversationId,
-            type: AgUiEventType.PROGRESS,
-            payload: { stage: 'requirements', percentage: 50 }
-        });
-        
-        emitEvent(ws, {
-            sessionId: context.conversationId,
-            type: AgUiEventType.TEXT_MESSAGE_CONTENT,
-            payload: { text: 'Analyzing your requirements...' }
-        });
-        
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Step 3: Wireframe generation
-        emitEvent(ws, {
-            sessionId: context.conversationId,
-            type: AgUiEventType.PROGRESS,
-            payload: { stage: 'wireframe', percentage: 75 }
-        });
-        
-        emitEvent(ws, {
-            sessionId: context.conversationId,
-            type: AgUiEventType.TEXT_MESSAGE_CONTENT,
-            payload: { text: 'Creating wireframe...' }
-        });
-        
-        // Mock wireframe HTML
-        const mockWireframe = `
-            <div style="padding: 20px; border: 2px dashed #ccc; margin: 10px; font-family: Arial;">
-                <h2>📋 Application Wireframe</h2>
-                <div style="border: 1px solid #ddd; padding: 15px; margin: 10px 0;">
-                    <h3>Header Section</h3>
-                    <p>Navigation menu and app title</p>
-                </div>
-                <div style="border: 1px solid #ddd; padding: 15px; margin: 10px 0;">
-                    <h3>Main Content</h3>
-                    <p>Primary application features and content</p>
-                </div>
-                <div style="border: 1px solid #ddd; padding: 15px; margin: 10px 0;">
-                    <h3>Footer Section</h3>
-                    <p>Additional links and information</p>
-                </div>
-            </div>
-        `;
-        
-        emitEvent(ws, {
-            sessionId: context.conversationId,
-            type: AgUiEventType.RENDER_CONTENT,
-            payload: { html: mockWireframe, type: 'wireframe' }
-        });
-        
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Step 4: Final completion
-        emitEvent(ws, {
-            sessionId: context.conversationId,
-            type: AgUiEventType.PROGRESS,
-            payload: { stage: 'complete', percentage: 100 }
-        });
-        
-        // Update context with results
-        return {
-            ...context,
-            requirements: `User request: ${context.userInput}`,
-            wireframe: mockWireframe,
-            generatedCode: {
-                'index.html': '<html><body><h1>Generated App</h1></body></html>',
-                'app.js': 'console.log("Generated application");'
-            }
-        };
-    }
-};
-
-/**
- * Mock implementation of modification pipeline
- */
-const mockModificationPipeline: MockPipeline = {
-    id: 'modification-app-generator',
-    name: 'Modification App Generator',
-    
-    async run(context: Context, ws: WebSocket): Promise<Context> {
-        console.log(`🔄 Running modification pipeline for: ${context.conversationId}`);
-        
-        emitEvent(ws, {
-            sessionId: context.conversationId,
-            type: AgUiEventType.PROGRESS,
-            payload: { stage: 'modification', percentage: 50 }
-        });
-        
-        emitEvent(ws, {
-            sessionId: context.conversationId,
-            type: AgUiEventType.TEXT_MESSAGE_CONTENT,
-            payload: { text: 'Modifying your application based on feedback...' }
-        });
-        
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        emitEvent(ws, {
-            sessionId: context.conversationId,
-            type: AgUiEventType.PROGRESS,
-            payload: { stage: 'complete', percentage: 100 }
-        });
-        
-        emitEvent(ws, {
-            sessionId: context.conversationId,
-            type: AgUiEventType.TEXT_MESSAGE_CONTENT,
-            payload: { text: 'Modifications completed successfully!' }
-        });
-        
-        return {
-            ...context,
-            generatedCode: {
-                ...context.generatedCode,
-                'modified.js': `// Modified based on: ${context.userInput}\nconsole.log("Application modified");`
-            }
-        };
-    }
-};
-
-/**
- * Selects the appropriate pipeline based on context
- */
-export function selectPipeline(context: Context): MockPipeline {
-    if (context.isFirstRequest) {
-        console.log(`🎯 Selected initial pipeline for conversation: ${context.conversationId}`);
-        return mockInitialPipeline;
-    } else {
-        console.log(`🎯 Selected modification pipeline for conversation: ${context.conversationId}`);
-        return mockModificationPipeline;
-    }
+interface Pipeline {
+  name: string;
+  run: (context: Context) => Promise<Context>;
 }
 
 /**
- * Runs the selected pipeline with error handling
+ * Wireframe generation pipeline
  */
-export async function runPipeline(context: Context, ws: WebSocket): Promise<Context> {
-    try {
-        const pipeline = selectPipeline(context);
-        console.log(`🚀 Starting pipeline: ${pipeline.name}`);
-        
-        const updatedContext = await pipeline.run(context, ws);
-        
-        console.log(`✅ Pipeline completed successfully: ${pipeline.name}`);
-        return updatedContext;
-        
-    } catch (error) {
-        console.error('❌ Pipeline execution failed:', error);
-        
-        // Send error event
-        emitEvent(ws, {
-            sessionId: context.conversationId,
-            type: AgUiEventType.ERROR,
-            payload: {
-                message: error instanceof Error ? error.message : 'Pipeline execution failed',
-                recoverable: true
-            }
-        });
-        
-        // Update context with error information
-        return {
-            ...context,
-            lastError: {
-                agent: 'pipeline',
-                error: error instanceof Error ? error.message : 'Unknown pipeline error',
-                timestamp: getTimestamp()
-            },
-            retryCount: (context.retryCount || 0) + 1
-        };
+const wireframePipeline: Pipeline = {
+  name: 'wireframe',
+  run: async (context: Context) => {
+    const messageId = generateId();
+    
+    // Start assistant response
+    emitAgUiEvent(context, {
+      type: EventType.TEXT_MESSAGE_START,
+      conversationId: context.conversationId,
+      messageId,
+      role: 'assistant',
+      timestamp: Date.now()
+    });
+    
+    // Stream wireframe analysis
+    const analysis = "I'll analyze your requirements and create a wireframe for your application.";
+    for (const chunk of analysis.split(' ')) {
+      emitAgUiEvent(context, {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        conversationId: context.conversationId,
+        messageId,
+        delta: chunk + ' ',
+        timestamp: Date.now()
+      });
+      
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
+    
+    // Generate wireframe content
+    const wireframeContent = generateWireframeContent(context.userInput);
+    
+    emitAgUiEvent(context, {
+      type: EventType.TEXT_MESSAGE_CONTENT,
+      conversationId: context.conversationId,
+      messageId,
+      delta: `\n\n${wireframeContent}`,
+      timestamp: Date.now()
+    });
+    
+    // End message
+    emitAgUiEvent(context, {
+      type: EventType.TEXT_MESSAGE_END,
+      conversationId: context.conversationId,
+      messageId,
+      timestamp: Date.now()
+    });
+    
+    // Update context
+    return {
+      ...context,
+      wireframe: wireframeContent,
+      state: {
+        ...context.state,
+        wireframe: wireframeContent,
+        stage: 'wireframe_complete'
+      }
+    };
+  }
+};
+
+/**
+ * Code generation pipeline
+ */
+const codePipeline: Pipeline = {
+  name: 'code',
+  run: async (context: Context) => {
+    const messageId = generateId();
+    
+    // Start assistant response
+    emitAgUiEvent(context, {
+      type: EventType.TEXT_MESSAGE_START,
+      conversationId: context.conversationId,
+      messageId,
+      role: 'assistant',
+      timestamp: Date.now()
+    });
+    
+    // Stream code generation progress
+    const steps = [
+      "Analyzing requirements...",
+      "Generating React components...", 
+      "Adding TypeScript types...",
+      "Implementing event handlers...",
+      "Finalizing code structure..."
+    ];
+    
+    for (const step of steps) {
+      emitAgUiEvent(context, {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        conversationId: context.conversationId,
+        messageId,
+        delta: step + '\n',
+        timestamp: Date.now()
+      });
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    // Tool call for code generation
+    const toolCallId = generateId();
+    emitAgUiEvent(context, {
+      type: EventType.TOOL_CALL_START,
+      conversationId: context.conversationId,
+      messageId,
+      toolCallId,
+      toolName: 'codeGenerator',
+      timestamp: Date.now()
+    });
+    
+    const generatedCode = generateCodeContent(context);
+    
+    emitAgUiEvent(context, {
+      type: EventType.TOOL_CALL_ARGS,
+      conversationId: context.conversationId,
+      messageId,
+      toolCallId,
+      args: { 
+        requirements: context.userInput,
+        wireframe: context.wireframe,
+        framework: 'react'
+      },
+      timestamp: Date.now()
+    });
+    
+    emitAgUiEvent(context, {
+      type: EventType.TOOL_CALL_RESULT,
+      conversationId: context.conversationId,
+      messageId,
+      toolCallId,
+      result: generatedCode,
+      timestamp: Date.now()
+    });
+    
+    emitAgUiEvent(context, {
+      type: EventType.TOOL_CALL_END,
+      conversationId: context.conversationId,
+      messageId,
+      toolCallId,
+      timestamp: Date.now()
+    });
+    
+    // End message
+    emitAgUiEvent(context, {
+      type: EventType.TEXT_MESSAGE_END,
+      conversationId: context.conversationId,
+      messageId,
+      timestamp: Date.now()
+    });
+    
+    // Update context
+    return {
+      ...context,
+      generatedCode,
+      state: {
+        ...context.state,
+        generatedCode,
+        stage: 'code_complete'
+      }
+    };
+  }
+};
+
+/**
+ * Default response pipeline
+ */
+const defaultPipeline: Pipeline = {
+  name: 'default',
+  run: async (context: Context) => {
+    const messageId = generateId();
+    
+    // Start assistant response
+    emitAgUiEvent(context, {
+      type: EventType.TEXT_MESSAGE_START,
+      conversationId: context.conversationId,
+      messageId,
+      role: 'assistant',
+      timestamp: Date.now()
+    });
+    
+    // Generate response
+    const response = generateDefaultResponse(context.userInput);
+    
+    emitAgUiEvent(context, {
+      type: EventType.TEXT_MESSAGE_CONTENT,
+      conversationId: context.conversationId,
+      messageId,
+      delta: response,
+      timestamp: Date.now()
+    });
+    
+    // End message
+    emitAgUiEvent(context, {
+      type: EventType.TEXT_MESSAGE_END,
+      conversationId: context.conversationId,
+      messageId,
+      timestamp: Date.now()
+    });
+    
+    return context;
+  }
+};
+
+/**
+ * Emit AG-UI event through context
+ */
+function emitAgUiEvent(context: Context, event: AgUiEvent): void {
+  context.events.emit('aguiEvent', event);
+}
+
+/**
+ * Generate wireframe content
+ */
+function generateWireframeContent(userInput: string): string {
+  return `
+## Wireframe Structure
+
+Based on your request: "${userInput}"
+
+### Layout Components
+- Header with navigation
+- Main content area  
+- Sidebar for additional features
+- Footer with links
+
+### Interactive Elements
+- Form inputs for user data
+- Buttons for actions
+- Dynamic content areas
+- Responsive design breakpoints
+
+This wireframe provides the foundation for your application structure.
+  `.trim();
+}
+
+/**
+ * Generate code content
+ */
+function generateCodeContent(context: Context): Record<string, string> {
+  return {
+    'App.tsx': `
+import React from 'react';
+import './App.css';
+
+function App() {
+  return (
+    <div className="app">
+      <header className="app-header">
+        <h1>Generated App</h1>
+      </header>
+      <main className="app-main">
+        <p>Your app based on: ${context.userInput}</p>
+      </main>
+    </div>
+  );
+}
+
+export default App;
+    `.trim(),
+    
+    'App.css': `
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  background-color: #282c34;
+  padding: 20px;
+  color: white;
+  text-align: center;
+}
+
+.app-main {
+  flex: 1;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+    `.trim()
+  };
+}
+
+/**
+ * Generate default response
+ */
+function generateDefaultResponse(userInput: string): string {
+  return `I understand you'd like help with: "${userInput}". 
+
+I can help you create wireframes and generate code for web applications. Here are some things you can ask me:
+
+- "Create a wireframe for a todo app"
+- "Generate code for a dashboard interface" 
+- "Build a contact form component"
+
+What would you like to build today?`;
 }

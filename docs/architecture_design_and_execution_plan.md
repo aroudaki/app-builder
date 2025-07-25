@@ -53,10 +53,11 @@ This document unifies the **technical architecture** and the **step-by-step exec
 
 ## 3. Transport Protocol
 
-- **Protocol**: AG‑UI over **WebSocket** (no SSE).
-- **Session ID**: `conversationId`, generated on the first request and returned in the first event.
-- **ClientMessage** payload includes: `type` (`user_message` or `user_response`), `messageId`, `conversationId`, `clientState`, and `content`.
-- **Events**: standardized AG‑UI event types (`TEXT_MESSAGE_CONTENT`, `RENDER_CONTENT`, `RENDER_URL`, `REQUIRE_USER_RESPONSE`, etc.).
+- **Protocol**: AG‑UI over **WebSocket** (AG-UI is transport agnostic - supports WebSocket, SSE, HTTP, etc.).
+- **Session ID**: `conversationId`, generated on the first request and maintained throughout the conversation.
+- **Input Structure**: AG-UI standard `RunAgentInput` with `messages`, `tools`, and `state` properties.
+- **Events**: AG-UI standardized event types following official specification with 16 core event types.
+- **Streaming Pattern**: Uses Start-Content-End pattern for streaming responses (TEXT_MESSAGE_START → TEXT_MESSAGE_CONTENT → TEXT_MESSAGE_END).
 
 ---
 
@@ -96,40 +97,133 @@ This document unifies the **technical architecture** and the **step-by-step exec
 - **Package**: `libs/shared`
 - **Types** (`types.ts`):
   ```ts
-  export enum AgUiEventType {
+  // AG-UI Protocol Compliant Event Types
+  export enum EventType {
+    // Lifecycle Events
+    RUN_STARTED = 'RUN_STARTED',
+    RUN_FINISHED = 'RUN_FINISHED', 
+    RUN_ERROR = 'RUN_ERROR',
+    STEP_STARTED = 'STEP_STARTED',
+    STEP_FINISHED = 'STEP_FINISHED',
+    
+    // Text Message Events (Start-Content-End Pattern)
+    TEXT_MESSAGE_START = 'TEXT_MESSAGE_START',
     TEXT_MESSAGE_CONTENT = 'TEXT_MESSAGE_CONTENT',
-    RENDER_CONTENT = 'RENDER_CONTENT',
-    RENDER_URL = 'RENDER_URL',
-    REQUIRE_USER_RESPONSE = 'REQUIRE_USER_RESPONSE',
-    SESSION_COMPLETE = 'SESSION_COMPLETE',
-    ERROR = 'ERROR',
-    PROGRESS = 'PROGRESS'
+    TEXT_MESSAGE_END = 'TEXT_MESSAGE_END',
+    TEXT_MESSAGE_CHUNK = 'TEXT_MESSAGE_CHUNK',
+    
+    // Tool Call Events  
+    TOOL_CALL_START = 'TOOL_CALL_START',
+    TOOL_CALL_ARGS = 'TOOL_CALL_ARGS',
+    TOOL_CALL_END = 'TOOL_CALL_END',
+    TOOL_CALL_CHUNK = 'TOOL_CALL_CHUNK',
+    TOOL_CALL_RESULT = 'TOOL_CALL_RESULT',
+    
+    // State Management Events
+    STATE_SNAPSHOT = 'STATE_SNAPSHOT',
+    STATE_DELTA = 'STATE_DELTA', 
+    MESSAGES_SNAPSHOT = 'MESSAGES_SNAPSHOT',
+    
+    // Special Events
+    RAW = 'RAW',
+    CUSTOM = 'CUSTOM'
   }
 
-  export interface EventPayloads {
-    [AgUiEventType.TEXT_MESSAGE_CONTENT]: { text: string };
-    [AgUiEventType.RENDER_CONTENT]: { html: string; type: 'wireframe' | 'preview' };
-    [AgUiEventType.RENDER_URL]: { url: string; title?: string };
-    [AgUiEventType.REQUIRE_USER_RESPONSE]: { questions: Question[] };
-    [AgUiEventType.SESSION_COMPLETE]: { success: boolean };
-    [AgUiEventType.ERROR]: { message: string; recoverable: boolean };
-    [AgUiEventType.PROGRESS]: { stage: string; percentage: number };
+  // AG-UI Base Event Structure
+  export interface BaseEvent {
+    type: EventType;
+    timestamp?: number;
+    rawEvent?: any;
   }
 
-  export interface AgUiEvent<T = any> { 
-    sessionId: string; 
-    eventId: string; 
-    timestamp: string; 
-    type: AgUiEventType; 
-    payload: T; 
+  // Specific Event Types
+  export interface TextMessageStartEvent extends BaseEvent {
+    type: EventType.TEXT_MESSAGE_START;
+    messageId: string;
+    role: 'assistant';
   }
 
-  export interface ClientMessage { 
-    type: 'user_message'|'user_response'; 
-    messageId: string; 
-    conversationId: string|null; 
-    clientState: any; 
-    content: any; 
+  export interface TextMessageContentEvent extends BaseEvent {
+    type: EventType.TEXT_MESSAGE_CONTENT;
+    messageId: string;
+    delta: string;
+  }
+
+  export interface TextMessageEndEvent extends BaseEvent {
+    type: EventType.TEXT_MESSAGE_END;
+    messageId: string;
+  }
+
+  export interface RunStartedEvent extends BaseEvent {
+    type: EventType.RUN_STARTED;
+  }
+
+  export interface RunFinishedEvent extends BaseEvent {
+    type: EventType.RUN_FINISHED;
+  }
+
+  export interface StateSnapshotEvent extends BaseEvent {
+    type: EventType.STATE_SNAPSHOT;
+    state: State;
+  }
+
+  export interface StateDeltaEvent extends BaseEvent {
+    type: EventType.STATE_DELTA;
+    delta: JsonPatch[];
+  }
+
+  export interface MessagesSnapshotEvent extends BaseEvent {
+    type: EventType.MESSAGES_SNAPSHOT;
+    messages: Message[];
+  }
+
+  // AG-UI Message Types
+  export interface BaseMessage {
+    id: string;
+    role: string;
+    content?: string;
+    name?: string;
+  }
+
+  export interface UserMessage extends BaseMessage {
+    role: 'user';
+    content: string;
+  }
+
+  export interface AssistantMessage extends BaseMessage {
+    role: 'assistant';
+    content?: string;
+    toolCalls?: ToolCall[];
+  }
+
+  export interface SystemMessage extends BaseMessage {
+    role: 'system';
+    content: string;
+  }
+
+  export interface ToolMessage extends BaseMessage {
+    role: 'tool';
+    content: string;
+    toolCallId: string;
+  }
+
+  export type Message = UserMessage | AssistantMessage | SystemMessage | ToolMessage;
+
+  // AG-UI Tool Call Structure
+  export interface ToolCall {
+    id: string;
+    type: 'function';
+    function: {
+      name: string;
+      arguments: string;
+    };
+  }
+
+  // AG-UI Input Structure
+  export interface RunAgentInput {
+    messages: Message[];
+    tools?: Tool[];
+    state?: State;
   }
 
   export interface Context {
@@ -137,6 +231,8 @@ This document unifies the **technical architecture** and the **step-by-step exec
     events: EventEmitter;
     isFirstRequest: boolean;
     userInput: string;
+    messages: Message[];
+    state?: State;
     requirements?: string;
     wireframe?: string;
     generatedCode?: Record<string, string>;
@@ -161,7 +257,7 @@ This document unifies the **technical architecture** and the **step-by-step exec
     version: number;
     timestamp: string;
     context: Context;
-    events: AgUiEvent[];
+    events: BaseEvent[];
     artifacts?: {
       wireframe?: string;
       generatedFiles?: Record<string, string>;
@@ -175,6 +271,23 @@ This document unifies the **technical architecture** and the **step-by-step exec
     type: 'text' | 'select' | 'multiselect' | 'boolean';
     options?: string[];
     required?: boolean;
+  }
+
+  export interface State {
+    [key: string]: any;
+  }
+
+  export interface Tool {
+    name: string;
+    description: string;
+    parameters: any;
+  }
+
+  export interface JsonPatch {
+    op: 'add' | 'remove' | 'replace' | 'move' | 'copy' | 'test';
+    path: string;
+    value?: any;
+    from?: string;
   }
   ```
 - **Helpers**: `generateUUID()`, `getTimestamp()`, Blob snapshot helpers.
@@ -194,27 +307,42 @@ This document unifies the **technical architecture** and the **step-by-step exec
 - **Agent Architecture**: Data-driven agent configuration with `BaseAgent` class for common execution logic.
 - **WebSocket Handler**: Complete message handling implementation:
   ```ts
-  export async function handleWebSocketMessage(ws: WebSocket, message: ClientMessage) {
+  export async function handleWebSocketMessage(ws: WebSocket, input: RunAgentInput) {
     try {
-      // 1. Load context
-      const context = await loadContext(message.conversationId, message.clientState);
+      // 1. Emit RUN_STARTED event
+      emitEvent(ws, { type: EventType.RUN_STARTED, timestamp: Date.now() });
       
-      // 2. Update context with new input
-      context.userInput = message.content.text || message.content;
+      // 2. Load context from state or create new
+      const context = await loadContext(input.state, input.messages);
+      
+      // 3. Update context with new messages
+      context.messages = input.messages;
+      context.userInput = input.messages[input.messages.length - 1]?.content || '';
       context.retryCount = context.retryCount || 0;
       
-      // 3. Select and run pipeline
+      // 4. Select and run pipeline
       const pipeline = selectPipeline(context);
       const updatedContext = await pipeline.run(context);
       
-      // 4. Persist snapshot asynchronously
+      // 5. Emit state updates
+      emitEvent(ws, {
+        type: EventType.STATE_SNAPSHOT,
+        state: updatedContext.state,
+        timestamp: Date.now()
+      });
+      
+      // 6. Emit messages snapshot
+      emitEvent(ws, {
+        type: EventType.MESSAGES_SNAPSHOT, 
+        messages: updatedContext.messages,
+        timestamp: Date.now()
+      });
+      
+      // 7. Persist snapshot asynchronously
       persistSnapshot(updatedContext).catch(console.error);
       
-      // 5. Send completion event
-      emitEvent(ws, {
-        type: AgUiEventType.SESSION_COMPLETE,
-        payload: { success: true }
-      });
+      // 8. Emit RUN_FINISHED event
+      emitEvent(ws, { type: EventType.RUN_FINISHED, timestamp: Date.now() });
     } catch (error) {
       // Handle errors with recovery context
       const updatedContext = {
@@ -228,11 +356,9 @@ This document unifies the **technical architecture** and the **step-by-step exec
       };
       
       emitEvent(ws, {
-        type: AgUiEventType.ERROR,
-        payload: { 
-          message: error.message, 
-          recoverable: updatedContext.retryCount < 3 
-        }
+        type: EventType.RUN_ERROR,
+        timestamp: Date.now(),
+        rawEvent: { message: error.message, recoverable: updatedContext.retryCount < 3 }
       });
     }
   }
@@ -242,28 +368,56 @@ This document unifies the **technical architecture** and the **step-by-step exec
 
 - **Frameworks**: React, TypeScript, Tailwind CSS, Shadcn UI, XState, AG‑UI SDK, `ws`.
 - **Structure** (`apps/client/src`):
-  - `api/agui.ts`: `createAgUiClient(conversationId)` connecting via WebSocket.
-  - `state/machine.ts`: XState definition with `idle`, `waiting`, `rendering`, `complete`.
+  - `api/agui.ts`: `createAgUiClient(conversationId)` connecting via WebSocket with AG-UI protocol.
+  - `state/machine.ts`: XState definition with `idle`, `running`, `streaming`, `waiting`, `complete`, `error`.
   - `components/ChatPanel.tsx`, `components/ContentPanel.tsx`, `components/EventRenderer.tsx`.
   - `App.tsx`: initializes WebSocket, dispatches events to state machine, renders UI.
-- **Client-Held State**: holds full `clientState`; on reload, fetches Blob snapshot if local state is missing.
-- **Reconnection Logic**: on `ws.close`, reconnect with same `conversationId` and `clientState`.
-- **State Persistence**: Local storage integration for conversation state:
+- **Client-Held State**: holds full conversation state with AG-UI Message format; on reload, fetches snapshot if local state is missing.
+- **Reconnection Logic**: on `ws.close`, reconnect with same `conversationId` and send current state.
+- **AG-UI Message Handling**: Convert user input to AG-UI `RunAgentInput` format:
   ```ts
-  export const ConversationStorage = {
-    save(conversationId: string, state: any) {
-      localStorage.setItem(`conversation-${conversationId}`, JSON.stringify(state));
-    },
-    
-    load(conversationId: string) {
-      const saved = localStorage.getItem(`conversation-${conversationId}`);
-      return saved ? JSON.parse(saved) : null;
-    },
-    
-    clear(conversationId: string) {
-      localStorage.removeItem(`conversation-${conversationId}`);
-    }
+  const runInput: RunAgentInput = {
+    messages: [
+      ...conversationHistory,
+      { id: generateId(), role: 'user', content: userInput }
+    ],
+    tools: availableTools,
+    state: currentState
   };
+  ```
+- **Event Processing**: Handle AG-UI event streams with proper Start-Content-End patterns:
+  ```ts
+  // Handle streaming text messages
+  case EventType.TEXT_MESSAGE_START: {
+    // Initialize new message
+    setMessages(prev => [...prev, { 
+      id: event.messageId, 
+      role: event.role, 
+      content: '', 
+      streaming: true 
+    }]);
+    break;
+  }
+  
+  case EventType.TEXT_MESSAGE_CONTENT: {
+    // Append content delta
+    setMessages(prev => prev.map(msg => 
+      msg.id === event.messageId 
+        ? { ...msg, content: msg.content + event.delta }
+        : msg
+    ));
+    break;
+  }
+  
+  case EventType.TEXT_MESSAGE_END: {
+    // Mark message complete
+    setMessages(prev => prev.map(msg => 
+      msg.id === event.messageId 
+        ? { ...msg, streaming: false }
+        : msg
+    ));
+    break;
+  }
   ```
 
 ### 5.4 Orchestration with LangGraph
@@ -390,7 +544,191 @@ VERBOSE_LOGGING=true
 CUSTOM_AGENT_PATH=./custom-agents
 ```
 
-### 5.8 CI/CD & Deployment
+### 5.8 AG-UI Pipeline Implementation Examples
+
+**Wireframe Generation Pipeline**:
+```ts
+// apps/server/src/orchestrator/pipeline.ts
+import { EventType, BaseEvent, RunAgentInput } from '@ag-ui/core';
+
+export async function generateWireframe(
+  input: RunAgentInput, 
+  eventEmitter: (event: BaseEvent) => void
+) {
+  const messageId = generateId();
+  
+  // Start assistant response
+  eventEmitter({
+    type: EventType.TEXT_MESSAGE_START,
+    conversationId: input.conversationId,
+    messageId,
+    role: 'assistant',
+    timestamp: Date.now()
+  });
+  
+  // Stream wireframe analysis
+  const analysis = "I'll analyze your requirements and create a wireframe...";
+  for (const chunk of analysis.split(' ')) {
+    eventEmitter({
+      type: EventType.TEXT_MESSAGE_CONTENT,
+      conversationId: input.conversationId,
+      messageId,
+      delta: chunk + ' ',
+      timestamp: Date.now()
+    });
+    
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  
+  // Tool call for wireframe generation
+  const toolCallId = generateId();
+  eventEmitter({
+    type: EventType.TOOL_CALL_START,
+    conversationId: input.conversationId,
+    messageId,
+    toolCallId,
+    toolName: 'wireframeGenerator',
+    timestamp: Date.now()
+  });
+  
+  eventEmitter({
+    type: EventType.TOOL_CALL_ARGS,
+    conversationId: input.conversationId,
+    messageId,
+    toolCallId,
+    args: { 
+      requirements: extractRequirements(input.messages),
+      style: 'modern',
+      framework: 'react'
+    },
+    timestamp: Date.now()
+  });
+  
+  // Execute wireframe generation
+  const wireframeResult = await generateWireframeStructure(input.messages);
+  
+  eventEmitter({
+    type: EventType.TOOL_CALL_RESULT,
+    conversationId: input.conversationId,
+    messageId,
+    toolCallId,
+    result: wireframeResult,
+    timestamp: Date.now()
+  });
+  
+  eventEmitter({
+    type: EventType.TOOL_CALL_END,
+    conversationId: input.conversationId,
+    messageId,
+    toolCallId,
+    timestamp: Date.now()
+  });
+  
+  // End message
+  eventEmitter({
+    type: EventType.TEXT_MESSAGE_END,
+    conversationId: input.conversationId,
+    messageId,
+    timestamp: Date.now()
+  });
+}
+```
+
+**Code Generation Pipeline**:
+```ts
+export async function generateCode(
+  input: RunAgentInput, 
+  eventEmitter: (event: BaseEvent) => void
+) {
+  const messageId = generateId();
+  
+  // Start streaming response
+  eventEmitter({
+    type: EventType.TEXT_MESSAGE_START,
+    conversationId: input.conversationId,
+    messageId,
+    role: 'assistant',
+    timestamp: Date.now()
+  });
+  
+  // Stream code generation progress
+  const steps = [
+    "Analyzing wireframe structure...",
+    "Generating React components...", 
+    "Adding TypeScript types...",
+    "Implementing event handlers...",
+    "Finalizing styles..."
+  ];
+  
+  for (const step of steps) {
+    eventEmitter({
+      type: EventType.TEXT_MESSAGE_CONTENT,
+      conversationId: input.conversationId,
+      messageId,
+      delta: step + '\n',
+      timestamp: Date.now()
+    });
+    
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+  
+  // Tool call for code execution
+  const toolCallId = generateId();
+  eventEmitter({
+    type: EventType.TOOL_CALL_START,
+    conversationId: input.conversationId,
+    messageId,
+    toolCallId,
+    toolName: 'codeRunner',
+    timestamp: Date.now()
+  });
+  
+  const generatedCode = await generateComponentCode(input);
+  
+  eventEmitter({
+    type: EventType.TOOL_CALL_ARGS,
+    conversationId: input.conversationId,
+    messageId,
+    toolCallId,
+    args: { 
+      code: generatedCode,
+      language: 'typescript',
+      framework: 'react'
+    },
+    timestamp: Date.now()
+  });
+  
+  // Execute and test code
+  const executionResult = await executeCode(generatedCode);
+  
+  eventEmitter({
+    type: EventType.TOOL_CALL_RESULT,
+    conversationId: input.conversationId,
+    messageId,
+    toolCallId,
+    result: executionResult,
+    timestamp: Date.now()
+  });
+  
+  eventEmitter({
+    type: EventType.TOOL_CALL_END,
+    conversationId: input.conversationId,
+    messageId,
+    toolCallId,
+    timestamp: Date.now()
+  });
+  
+  // End message
+  eventEmitter({
+    type: EventType.TEXT_MESSAGE_END,
+    conversationId: input.conversationId,
+    messageId,
+    timestamp: Date.now()
+  });
+}
+```
+
+### 5.9 CI/CD & Deployment
 
 - **Monorepo**: Turborepo or Nx pipelines.
 - **Server Workflow**: `eslint`, `tsc --noEmit`, `npm test`, `npm run build`, `docker build && push`.
@@ -417,7 +755,7 @@ CUSTOM_AGENT_PATH=./custom-agents
   }
   ```
 
-### 5.9 Security & POC Constraints
+### 5.10 Security & POC Constraints
 
 - **No Redis**: server stateless by design.
 - **Simplified Sandboxing**: Uses temp directories instead of Docker for POC; easy to upgrade to container isolation later.
@@ -430,7 +768,7 @@ CUSTOM_AGENT_PATH=./custom-agents
 - **Timeouts**: Agent execution timeout of 30 seconds, WebSocket message timeout of 5 minutes.
 - **Cleanup Strategy**: Temp directories cleaned after 5 minutes, blob snapshots retained for 30 days.
 
-### 5.10 Local Development Setup
+### 5.11 Local Development Setup
 
 Root `package.json` scripts for development:
 
