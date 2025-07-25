@@ -22,7 +22,7 @@ export interface AgUiContext {
     conversationId: string | null;
     currentEvent: AgUiEvent | null;
     events: AgUiEvent[];
-    messages: Array<{id: string, role: string, content: string, streaming?: boolean}>;
+    messages: Array<{ id: string, role: string, content: string, streaming?: boolean }>;
     error: string | null;
     isConnected: boolean;
     reconnectAttempt: number;
@@ -67,8 +67,8 @@ const defaultEventHandlers: Record<EventType, AgUiEventHandler> = {
 
     [EventType.TEXT_MESSAGE_CONTENT]: (event, context) => {
         if ('messageId' in event && 'delta' in event) {
-            const updatedMessages = context.messages.map(msg => 
-                msg.id === event.messageId 
+            const updatedMessages = context.messages.map(msg =>
+                msg.id === event.messageId
                     ? { ...msg, content: msg.content + event.delta }
                     : msg
             );
@@ -83,8 +83,8 @@ const defaultEventHandlers: Record<EventType, AgUiEventHandler> = {
 
     [EventType.TEXT_MESSAGE_END]: (event, context) => {
         if ('messageId' in event) {
-            const updatedMessages = context.messages.map(msg => 
-                msg.id === event.messageId 
+            const updatedMessages = context.messages.map(msg =>
+                msg.id === event.messageId
                     ? { ...msg, streaming: false }
                     : msg
             );
