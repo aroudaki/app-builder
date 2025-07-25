@@ -1,32 +1,32 @@
 {
-  "name": "ai-app-generator",
-  "version": "0.1.0",
-  "private": true,
-  "packageManager": "npm@10.0.0",
-  "workspaces": [
-    "apps/*",
-    "libs/*"
-  ],
-  "scripts": {
-    "dev": "turbo run dev --parallel",
-    "dev:server": "cd apps/server && npm run dev",
-    "dev:client": "cd apps/client && npm run dev",
-    "test": "turbo run test",
-    "test:e2e": "turbo run test:e2e",
-    "build": "turbo run build",
-    "build:server": "cd apps/server && npm run build",
-    "build:client": "cd apps/client && npm run build",
-    "lint": "turbo run lint",
-    "type-check": "turbo run type-check",
-    "clean": "turbo run clean"
-  },
-  "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^8.38.0",
-    "@typescript-eslint/parser": "^8.38.0",
-    "eslint": "^9.32.0",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.3",
-    "prettier": "^3.6.2",
-    "turbo": "^2.0.0"
-  }
+    "name": "ai-app-generator",
+    "version": "0.1.0",
+    "private": true,
+    "packageManager": "npm@10.0.0",
+    "workspaces": [
+        "apps/*",
+        "libs/*"
+    ],
+    "scripts": {
+        "dev": "turbo run dev --parallel",
+        "dev:server": "cd apps/server && npm run dev",
+        "dev:client": "cd apps/client && npm run dev",
+        "test": "turbo run test",
+        "test:e2e": "turbo run test:e2e",
+        "build": "turbo run build",
+        "build:server": "cd apps/server && npm run build",
+        "build:client": "cd apps/client && npm run build",
+        "lint": "turbo run lint",
+        "type-check": "turbo run type-check",
+        "clean": "turbo run clean"
+    },
+    "devDependencies": {
+        "@typescript-eslint/eslint-plugin": "^8.38.0",
+        "@typescript-eslint/parser": "^8.38.0",
+        "eslint": "^9.32.0",
+        "eslint-config-prettier": "^10.1.8",
+        "eslint-plugin-prettier": "^5.5.3",
+        "prettier": "^3.6.2",
+        "turbo": "^2.0.0"
+    }
 }
