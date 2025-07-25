@@ -1,0 +1,1 @@
+{"version":3,"file":"codeRunner.d.ts","sourceRoot":"","sources":["../../src/tools/codeRunner.ts"],"names":[],"mappings":"AAGA,qBAAa,gBAAgB;IACrB,OAAO,CAAC,KAAK,EAAE,MAAM,CAAC,MAAM,EAAE,MAAM,CAAC,GAAG,OAAO,CAAC,GAAG,CAAC;IAMpD,QAAQ,CAAC,QAAQ,EAAE,MAAM,EAAE,IAAI,EAAE,MAAM,GAAG,OAAO,CAAC,MAAM,CAAC;CAIhE"}

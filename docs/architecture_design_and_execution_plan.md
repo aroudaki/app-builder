@@ -699,7 +699,7 @@ export function createMockWebSocket(): MockWebSocket {
      ```
    - *Note: Remote repository can be added later when ready to push to GitHub/Azure DevOps*
 
-### Task 2: Boilerplate Scaffolding Boilerplate Scaffolding
+### Task 2: Boilerplate Scaffolding
 
 #### Server
 
