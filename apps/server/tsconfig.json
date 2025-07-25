@@ -1,10 +1,16 @@
 {
     "extends": "../../tsconfig.base.json",
     "compilerOptions": {
-        "rootDir": "src",
-        "outDir": "dist"
+        "outDir": "dist",
+        "composite": true,
+        "skipLibCheck": true
     },
     "include": [
         "src"
+    ],
+    "references": [
+        {
+            "path": "../../libs/shared"
+        }
     ]
 }

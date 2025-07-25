@@ -1,24 +1,22 @@
 import { WebSocket } from 'ws';
-
-export interface ClientMessage {
-    type: 'user_message' | 'user_response';
-    messageId: string;
-    conversationId: string | null;
-    clientState: any;
-    content: any;
-}
+import { 
+    ClientMessage, 
+    AgUiEventType, 
+    AgUiEvent, 
+    generateUUID, 
+    getTimestamp 
+} from '@shared/index.js';
 
 export async function handleWebSocketMessage(ws: WebSocket, message: ClientMessage): Promise<void> {
     try {
         console.log('Received message:', message);
 
-        // For now, just echo back a simple response
-        // This will be expanded in later tasks
-        const response = {
-            type: 'TEXT_MESSAGE_CONTENT',
-            sessionId: message.conversationId || 'temp-session',
+        // Create AG-UI compliant event
+        const response: AgUiEvent = {
+            sessionId: message.conversationId || generateUUID(),
             eventId: generateUUID(),
-            timestamp: new Date().toISOString(),
+            timestamp: getTimestamp(),
+            type: AgUiEventType.TEXT_MESSAGE_CONTENT,
             payload: {
                 text: `Echo: ${JSON.stringify(message.content)}`
             }
@@ -27,11 +25,11 @@ export async function handleWebSocketMessage(ws: WebSocket, message: ClientMessa
         ws.send(JSON.stringify(response));
 
         // Send completion event
-        const completionEvent = {
-            type: 'SESSION_COMPLETE',
-            sessionId: message.conversationId || 'temp-session',
+        const completionEvent: AgUiEvent = {
+            sessionId: response.sessionId,
             eventId: generateUUID(),
-            timestamp: new Date().toISOString(),
+            timestamp: getTimestamp(),
+            type: AgUiEventType.SESSION_COMPLETE,
             payload: {
                 success: true
             }
@@ -42,11 +40,11 @@ export async function handleWebSocketMessage(ws: WebSocket, message: ClientMessa
     } catch (error) {
         console.error('Error in handleWebSocketMessage:', error);
 
-        const errorEvent = {
-            type: 'ERROR',
-            sessionId: message.conversationId || 'temp-session',
+        const errorEvent: AgUiEvent = {
+            sessionId: message.conversationId || generateUUID(),
             eventId: generateUUID(),
-            timestamp: new Date().toISOString(),
+            timestamp: getTimestamp(),
+            type: AgUiEventType.ERROR,
             payload: {
                 message: error instanceof Error ? error.message : 'Unknown error',
                 recoverable: true
@@ -55,12 +53,4 @@ export async function handleWebSocketMessage(ws: WebSocket, message: ClientMessa
 
         ws.send(JSON.stringify(errorEvent));
     }
-}
-
-function generateUUID(): string {
-    return 'xxxx-xxxx-xxxx'.replace(/[xy]/g, function (c) {
-        const r = Math.random() * 16 | 0;
-        const v = c == 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
 }

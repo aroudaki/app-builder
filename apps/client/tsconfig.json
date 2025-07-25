@@ -32,5 +32,10 @@
     },
     "include": [
         "src"
+    ],
+    "references": [
+        {
+            "path": "../../libs/shared"
+        }
     ]
 }
