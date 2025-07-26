@@ -34,8 +34,8 @@ Be specific, actionable, and comprehensive. This document will be the foundation
 
     validateOutput: (output: any) => {
         const response = output.response || '';
-        return response.length > 200 && 
-               response.includes('##') && 
-               (response.includes('features') || response.includes('requirements'));
+        return response.length > 200 &&
+            response.includes('##') &&
+            (response.includes('features') || response.includes('requirements'));
     }
 };

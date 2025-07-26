@@ -994,15 +994,44 @@ export function createMockWebSocket(): MockWebSocket {
 - ✅ Default response pipeline for general queries
 - ✅ AG-UI event emission throughout pipeline execution
 
-### ⚠️ Task 7: Agent Wrappers & Prompts **[PARTIALLY COMPLETED]**
+### ✅ Task 7: Agent Wrappers & Prompts **[COMPLETED]**
 
-**Status: PARTIALLY COMPLETED** ⚠️
-- ✅ Pipeline-based agent execution implemented
-- ✅ Error recovery with `context.lastError` and `retryCount`
-- ✅ Tool integration framework
-- ❌ `BaseAgent` class not yet implemented (using pipeline functions instead)
-- ❌ Agent configurations in separate files not yet created
-- ❌ Advanced agent prompts need refinement
+**Status: COMPLETED** ✅
+- ✅ **BaseAgent Class**: Complete implementation with AG-UI event handling
+  - ✅ Error recovery with `context.lastError` and `retryCount` (up to 3 attempts)
+  - ✅ Exponential backoff retry mechanism
+  - ✅ AG-UI compliant event streaming (Start-Content-End pattern)
+  - ✅ Tool integration framework (codeRunner, browser)
+  - ✅ Agent validation and skip condition support
+  - ✅ Context management and state updates
+- ✅ **Individual Agent Configurations**: 5 specialized agents created
+  - ✅ `clarificationAgent.ts` - Asks clarifying questions (skips on retries/detailed input)
+  - ✅ `requirementsAgent.ts` - Creates detailed technical specifications
+  - ✅ `wireframeAgent.ts` - Designs UI layouts and structure
+  - ✅ `codingAgent.ts` - Generates complete React applications with TypeScript
+  - ✅ `modificationAgent.ts` - Modifies existing code (skips on first requests)
+- ✅ **Agent Registry System**: Central agent management
+  - ✅ Agent registration and factory creation
+  - ✅ Pipeline configuration for initial vs modification flows
+  - ✅ Agent discovery and validation
+- ✅ **Enhanced Pipeline System**: Agent-based architecture
+  - ✅ `initialPipeline`: clarification → requirements → wireframe → coding
+  - ✅ `modificationPipeline`: modification → coding
+  - ✅ `simplePipeline`: for basic help queries
+  - ✅ Intelligent pipeline selection based on context
+- ✅ **Code Generation Engine**: Real application generation
+  - ✅ Todo apps, dashboards, forms, landing pages
+  - ✅ Complete file structure (package.json, .tsx, .css, configs)
+  - ✅ Modern React + TypeScript + Tailwind CSS
+  - ✅ Production-ready code with proper architecture
+- ✅ **Advanced Agent Prompts**: Specialized prompts for each agent type
+  - ✅ Context-aware prompt building
+  - ✅ Agent-specific response generation
+  - ✅ Validation functions for output quality
+- ✅ **Tool Integration**: Agents can execute tools
+  - ✅ Code runner integration for testing generated apps
+  - ✅ Browser tool for screenshots and validation
+  - ✅ Extensible tool system architecture
 
 ### ✅ Task 8: Container & Browser Tooling **[COMPLETED]**
 

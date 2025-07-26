@@ -20,7 +20,7 @@ export class BaseAgent {
      */
     async execute(context: Context): Promise<Context> {
         const startTime = Date.now();
-        
+
         try {
             console.log(`🤖 Executing agent: ${this.config.name}`);
 
@@ -83,10 +83,10 @@ export class BaseAgent {
             const retryCount = errorContext.retryCount || 0;
             if (retryCount < 3) {
                 console.log(`🔄 Retrying agent ${this.config.name} (attempt ${retryCount})`);
-                
+
                 // Wait before retry (exponential backoff)
                 await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
-                
+
                 return this.execute(errorContext);
             }
 
@@ -141,12 +141,12 @@ export class BaseAgent {
     protected async processWithLLM(context: Context): Promise<any> {
         // This would integrate with Azure OpenAI in a real implementation
         // For now, we'll use the existing logic patterns
-        
+
         const prompt = this.buildPrompt(context);
-        
+
         // Simulate LLM processing
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         return {
             response: this.generateResponse(context),
             confidence: 0.8,
@@ -160,22 +160,22 @@ export class BaseAgent {
      */
     protected buildPrompt(context: Context): string {
         let prompt = this.config.systemPrompt || `You are a ${this.config.name} agent.`;
-        
+
         prompt += `\n\nUser Input: ${context.userInput}`;
-        
+
         if (context.requirements) {
             prompt += `\n\nRequirements: ${context.requirements}`;
         }
-        
+
         if (context.wireframe) {
             prompt += `\n\nWireframe: ${context.wireframe}`;
         }
-        
+
         if (context.lastError) {
             prompt += `\n\nPrevious Error: ${context.lastError.error} (from ${context.lastError.agent})`;
             prompt += `\nRetry Count: ${context.retryCount}`;
         }
-        
+
         return prompt;
     }
 
@@ -209,7 +209,7 @@ export class BaseAgent {
 
         for (let i = 0; i < words.length; i++) {
             const chunk = words[i] + (i < words.length - 1 ? ' ' : '');
-            
+
             this.emitAgUiEvent(context, {
                 type: EventType.TEXT_MESSAGE_CONTENT,
                 conversationId: context.conversationId,
@@ -244,7 +244,7 @@ export class BaseAgent {
 
             try {
                 const toolResult = await this.executeTool(tool, context, result);
-                
+
                 // Emit tool call result
                 this.emitAgUiEvent(context, {
                     type: EventType.TOOL_CALL_RESULT,
@@ -259,7 +259,7 @@ export class BaseAgent {
 
             } catch (error) {
                 console.error(`Tool ${tool.name} failed:`, error);
-                
+
                 // Emit tool error
                 this.emitAgUiEvent(context, {
                     type: EventType.ERROR,
@@ -437,7 +437,7 @@ This wireframe provides a solid foundation for the implementation phase.`;
     protected generateCodingResponse(context: Context): string {
         // Generate actual code files for the coding agent
         const generatedCode = this.generateCodeFiles(context);
-        
+
         // Store the generated code in the result
         if (generatedCode) {
             (context as any).generatedCodeFiles = generatedCode;
@@ -482,7 +482,7 @@ The application is being built and tested. You'll be able to preview it shortly!
 
         // Determine app type based on input
         const appType = this.determineAppType(userInput);
-        
+
         return {
             'package.json': this.generatePackageJson(appType),
             'index.html': this.generateIndexHtml(appType),
@@ -501,7 +501,7 @@ The application is being built and tested. You'll be able to preview it shortly!
      */
     protected determineAppType(userInput: string): string {
         const input = userInput.toLowerCase();
-        
+
         if (input.includes('todo') || input.includes('task')) return 'todo';
         if (input.includes('dashboard') || input.includes('admin')) return 'dashboard';
         if (input.includes('form') || input.includes('contact')) return 'form';
@@ -509,7 +509,7 @@ The application is being built and tested. You'll be able to preview it shortly!
         if (input.includes('portfolio') || input.includes('profile')) return 'portfolio';
         if (input.includes('landing') || input.includes('homepage')) return 'landing';
         if (input.includes('shop') || input.includes('store') || input.includes('ecommerce')) return 'shop';
-        
+
         return 'general';
     }
 
@@ -554,7 +554,7 @@ The application is being built and tested. You'll be able to preview it shortly!
      */
     protected generateIndexHtml(appType: string): string {
         const title = appType.charAt(0).toUpperCase() + appType.slice(1) + ' App';
-        
+
         return `<!doctype html>
 <html lang="en">
   <head>
@@ -882,7 +882,7 @@ export default defineConfig({
      */
     protected generateReadme(appType: string, userInput: string): string {
         const title = appType.charAt(0).toUpperCase() + appType.slice(1) + ' App';
-        
+
         return `# ${title}
 
 Generated application based on: "${userInput}"

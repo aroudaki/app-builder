@@ -34,8 +34,8 @@ Be specific about placement, sizing, and relationships between components. This 
 
     validateOutput: (output: any) => {
         const response = output.response || '';
-        return response.length > 150 && 
-               response.includes('##') && 
-               (response.includes('layout') || response.includes('component') || response.includes('wireframe'));
+        return response.length > 150 &&
+            response.includes('##') &&
+            (response.includes('layout') || response.includes('component') || response.includes('wireframe'));
     }
 };

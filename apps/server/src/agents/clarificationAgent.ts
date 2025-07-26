@@ -31,15 +31,15 @@ Format your response as a friendly conversation, not a formal questionnaire.`,
 
     skipOn: (context: Context) => {
         // Skip clarification if we're retrying or if we already have detailed requirements
-        return (context.retryCount || 0) > 0 || 
-               (context.requirements && context.requirements.length > 100) ||
-               context.userInput.length > 200; // Skip if user provided detailed input
+        return (context.retryCount || 0) > 0 ||
+            (context.requirements && context.requirements.length > 100) ||
+            context.userInput.length > 200; // Skip if user provided detailed input
     },
 
     validateOutput: (output: any) => {
         // Validate that the clarification includes questions or acknowledges sufficient detail
         const response = output.response || '';
-        return response.length > 50 && 
-               (response.includes('?') || response.includes('understand') || response.includes('clear'));
+        return response.length > 50 &&
+            (response.includes('?') || response.includes('understand') || response.includes('clear'));
     }
 };

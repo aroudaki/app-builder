@@ -32,33 +32,33 @@ export const initialPipeline: Pipeline = {
     name: 'initial-app-generator',
     description: 'Complete application generation pipeline for new requests',
     agents: AgentRegistry.getInitialPipelineAgents(),
-    
+
     run: async (context: Context): Promise<Context> => {
         console.log(`🚀 Starting initial pipeline with agents: ${initialPipeline.agents.join(' → ')}`);
-        
+
         let currentContext = { ...context };
-        
+
         try {
             // Execute each agent in sequence
             for (const agentName of initialPipeline.agents) {
                 console.log(`🤖 Executing agent: ${agentName}`);
-                
+
                 const agent = AgentRegistry.createAgent(agentName);
                 currentContext = await agent.execute(currentContext);
-                
+
                 // Check if agent failed critically
                 if (currentContext.lastError && (currentContext.retryCount || 0) >= 3) {
                     console.error(`💥 Pipeline failed at agent: ${agentName}`);
                     break;
                 }
             }
-            
+
             console.log(`✅ Initial pipeline completed successfully`);
             return currentContext;
-            
+
         } catch (error) {
             console.error(`❌ Initial pipeline failed:`, error);
-            
+
             // Update context with pipeline error
             return {
                 ...currentContext,
@@ -80,33 +80,33 @@ export const modificationPipeline: Pipeline = {
     name: 'modification-app-generator',
     description: 'Application modification pipeline for existing code updates',
     agents: AgentRegistry.getModificationPipelineAgents(),
-    
+
     run: async (context: Context): Promise<Context> => {
         console.log(`🔄 Starting modification pipeline with agents: ${modificationPipeline.agents.join(' → ')}`);
-        
+
         let currentContext = { ...context };
-        
+
         try {
             // Execute each agent in sequence
             for (const agentName of modificationPipeline.agents) {
                 console.log(`🤖 Executing agent: ${agentName}`);
-                
+
                 const agent = AgentRegistry.createAgent(agentName);
                 currentContext = await agent.execute(currentContext);
-                
+
                 // Check if agent failed critically
                 if (currentContext.lastError && (currentContext.retryCount || 0) >= 3) {
                     console.error(`💥 Pipeline failed at agent: ${agentName}`);
                     break;
                 }
             }
-            
+
             console.log(`✅ Modification pipeline completed successfully`);
             return currentContext;
-            
+
         } catch (error) {
             console.error(`❌ Modification pipeline failed:`, error);
-            
+
             // Update context with pipeline error
             return {
                 ...currentContext,
@@ -128,12 +128,12 @@ export const simplePipeline: Pipeline = {
     name: 'simple-response',
     description: 'Simple response pipeline for basic queries',
     agents: [], // No agents, just direct response
-    
+
     run: async (context: Context): Promise<Context> => {
         console.log(`💬 Starting simple response pipeline`);
-        
+
         const messageId = generateId();
-        
+
         // Emit AG-UI events for simple response
         emitAgUiEvent(context, {
             type: EventType.TEXT_MESSAGE_START,
@@ -142,9 +142,9 @@ export const simplePipeline: Pipeline = {
             role: 'assistant',
             timestamp: Date.now()
         });
-        
+
         const response = generateHelpResponse(context.userInput);
-        
+
         emitAgUiEvent(context, {
             type: EventType.TEXT_MESSAGE_CONTENT,
             conversationId: context.conversationId,
@@ -152,14 +152,14 @@ export const simplePipeline: Pipeline = {
             delta: response,
             timestamp: Date.now()
         });
-        
+
         emitAgUiEvent(context, {
             type: EventType.TEXT_MESSAGE_END,
             conversationId: context.conversationId,
             messageId,
             timestamp: Date.now()
         });
-        
+
         return context;
     }
 };
@@ -169,22 +169,22 @@ export const simplePipeline: Pipeline = {
  */
 export function selectPipelineIntelligent(context: Context): Pipeline {
     const userInput = context.userInput.toLowerCase();
-    
+
     // Check for help or general queries
     if (userInput.includes('help') || userInput.includes('what can you') || userInput.includes('how do')) {
         return simplePipeline;
     }
-    
+
     // Check for modification requests
-    if (!context.isFirstRequest || 
-        context.generatedCode || 
-        userInput.includes('modify') || 
-        userInput.includes('change') || 
+    if (!context.isFirstRequest ||
+        context.generatedCode ||
+        userInput.includes('modify') ||
+        userInput.includes('change') ||
         userInput.includes('update') ||
         userInput.includes('fix')) {
         return modificationPipeline;
     }
-    
+
     // Default to initial pipeline for new app generation
     return initialPipeline;
 }
