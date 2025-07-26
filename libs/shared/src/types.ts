@@ -222,6 +222,8 @@ export interface AgentConfig {
     temperature?: number;
     tools?: Tool[];
     systemPrompt?: string;
+    skipOn?: (context: Context) => boolean;
+    validateOutput?: (output: any) => boolean;
 }
 
 // Utility Functions Type
