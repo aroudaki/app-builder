@@ -349,50 +349,20 @@ export class BaseAgent {
 
     /**
      * Generate development commands for the coding agent
+     * Since we now use boilerplate, we just examine and modify existing files
      */
     protected generateDevelopmentCommands(context: Context): string[] {
         const userInput = context.userInput;
-        const appType = this.determineAppType(userInput);
 
         const commands = [
             'pwd',
             'ls -la',
-            'mkdir -p src/components src/utils',
-            // Generate package.json
-            `cat > package.json << 'EOF'
-${this.generatePackageJson(appType)}
-EOF`,
-            // Generate index.html
-            `cat > index.html << 'EOF'
-${this.generateIndexHtml(appType)}
-EOF`,
-            // Generate main.tsx
-            `cat > src/main.tsx << 'EOF'
-${this.generateMainTsx()}
-EOF`,
-            // Generate App.tsx
-            `cat > src/App.tsx << 'EOF'
-${this.generateAppTsx(appType, userInput)}
-EOF`,
-            // Generate App.css
-            `cat > src/App.css << 'EOF'
-${this.generateAppCss()}
-EOF`,
-            // Generate configs
-            `cat > tailwind.config.js << 'EOF'
-${this.generateTailwindConfig()}
-EOF`,
-            `cat > vite.config.ts << 'EOF'
-${this.generateViteConfig()}
-EOF`,
-            `cat > tsconfig.json << 'EOF'
-${this.generateTsConfig()}
-EOF`,
-            // Install dependencies
+            'cat package.json',
+            'cat src/App.tsx',
+            'cat src/components/ui/button.tsx',
+            // Install dependencies (boilerplate already created)
             'npm install',
-            // Build the app
-            'npm run build',
-            // Start dev server (this will run in background)
+            // Start dev server to test changes
             'npm run dev'
         ];
 
