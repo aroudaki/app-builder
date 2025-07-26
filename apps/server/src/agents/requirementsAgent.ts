@@ -32,8 +32,10 @@ Create a structured markdown document with clear sections:
 
 Be specific, actionable, and comprehensive. This document will be the foundation for all subsequent development.`,
 
-    validateOutput: (output: any) => {
-        const response = output.response || '';
+    validateOutput: (context: Context) => {
+        // Check if the agent result has a proper response  
+        const agentResult = context.state?.[`requirements_result`];
+        const response = agentResult?.response || '';
         return response.length > 200 &&
             response.includes('##') &&
             (response.includes('features') || response.includes('requirements'));

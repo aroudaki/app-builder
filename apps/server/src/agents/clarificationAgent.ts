@@ -36,9 +36,10 @@ Format your response as a friendly conversation, not a formal questionnaire.`,
             context.userInput.length > 200; // Skip if user provided detailed input
     },
 
-    validateOutput: (output: any) => {
-        // Validate that the clarification includes questions or acknowledges sufficient detail
-        const response = output.response || '';
+    validateOutput: (context: Context) => {
+        // Check if the agent result has a proper response
+        const agentResult = context.state?.[`clarification_result`];
+        const response = agentResult?.response || '';
         return response.length > 50 &&
             (response.includes('?') || response.includes('understand') || response.includes('clear'));
     }

@@ -1,11 +1,20 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useAgUi } from './hooks/useAgUiSimple'
-import { EventType } from '@shared/index.js'
+import { EventType, type AgUiEvent } from '@shared/index.js'
 import './App.css'
+
+interface ParsedMessage {
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: number;
+    isComplete: boolean;
+}
 
 function App() {
     const [messageInput, setMessageInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [showDetailedEvents, setShowDetailedEvents] = useState(false);
 
     // Initialize AG-UI
     const {
@@ -16,6 +25,53 @@ function App() {
         startNewConversation,
         clearError
     } = useAgUi();
+
+    // Parse events into readable messages
+    const parsedMessages = useMemo(() => {
+        const messages: ParsedMessage[] = [];
+        const messageMap = new Map<string, ParsedMessage>();
+
+        // Parse events into messages
+        context.events.forEach(event => {
+            switch (event.type) {
+                case EventType.TEXT_MESSAGE_START:
+                    if ('messageId' in event && 'role' in event) {
+                        const message: ParsedMessage = {
+                            id: event.messageId,
+                            role: event.role as 'user' | 'assistant',
+                            content: '',
+                            timestamp: event.timestamp || Date.now(),
+                            isComplete: false
+                        };
+                        messageMap.set(event.messageId, message);
+                    }
+                    break;
+
+                case EventType.TEXT_MESSAGE_CONTENT:
+                    if ('messageId' in event && 'delta' in event) {
+                        const message = messageMap.get(event.messageId);
+                        if (message) {
+                            message.content += event.delta;
+                            messageMap.set(event.messageId, message);
+                        }
+                    }
+                    break;
+
+                case EventType.TEXT_MESSAGE_END:
+                    if ('messageId' in event) {
+                        const message = messageMap.get(event.messageId);
+                        if (message) {
+                            message.isComplete = true;
+                            messageMap.set(event.messageId, message);
+                        }
+                    }
+                    break;
+            }
+        });
+
+        // Convert map to sorted array
+        return Array.from(messageMap.values()).sort((a, b) => a.timestamp - b.timestamp);
+    }, [context.events]);
 
     // Handle sending messages
     const handleSendMessage = useCallback(async () => {
@@ -63,76 +119,98 @@ function App() {
         </div>
     );
 
-    // Render events/messages
-    const renderEvents = () => (
-        <div className="space-y-2 max-h-96 overflow-y-auto">
-            {context.events.length === 0 ? (
+    // Render conversation messages (user-friendly format)
+    const renderMessages = () => (
+        <div className="space-y-4">
+            {parsedMessages.length === 0 ? (
                 <div className="text-muted-foreground text-center py-8">
                     No messages yet. Start a conversation!
                 </div>
             ) : (
-                context.events.map((event, index) => {
-                    const timestamp = new Date().toLocaleTimeString();
-
-                    switch (event.type) {
-                        case EventType.TEXT_MESSAGE_START:
-                            return (
-                                <div key={index} className="p-3 bg-blue-50 border-l-4 border-blue-400 rounded">
-                                    <div className="text-xs text-blue-600 mb-1">{timestamp} - Message Start</div>
-                                    <div className="text-sm">{'role' in event ? `${event.role} message starting...` : 'Message starting...'}</div>
-                                </div>
-                            );
-
-                        case EventType.TEXT_MESSAGE_CONTENT:
-                            return (
-                                <div key={index} className="p-3 bg-gray-50 border-l-4 border-gray-400 rounded">
-                                    <div className="text-xs text-gray-600 mb-1">{timestamp} - Content</div>
-                                    <div className="text-sm font-mono">{'delta' in event ? event.delta : 'Content update'}</div>
-                                </div>
-                            );
-
-                        case EventType.TEXT_MESSAGE_END:
-                            return (
-                                <div key={index} className="p-3 bg-green-50 border-l-4 border-green-400 rounded">
-                                    <div className="text-xs text-green-600 mb-1">{timestamp} - Message Complete</div>
-                                    <div className="text-sm">Message finished</div>
-                                </div>
-                            );
-
-                        case EventType.RUN_STARTED:
-                            return (
-                                <div key={index} className="p-3 bg-purple-50 border-l-4 border-purple-400 rounded">
-                                    <div className="text-xs text-purple-600 mb-1">{timestamp} - Run Started</div>
-                                    <div className="text-sm">Processing your request...</div>
-                                </div>
-                            );
-
-                        case EventType.RUN_FINISHED:
-                            return (
-                                <div key={index} className="p-3 bg-green-50 border-l-4 border-green-400 rounded">
-                                    <div className="text-xs text-green-600 mb-1">{timestamp} - Run Finished</div>
-                                    <div className="text-sm">Request completed successfully</div>
-                                </div>
-                            );
-
-                        case EventType.ERROR:
-                            return (
-                                <div key={index} className="p-3 bg-red-50 border-l-4 border-red-400 rounded">
-                                    <div className="text-xs text-red-600 mb-1">{timestamp} - Error</div>
-                                    <div className="text-sm text-red-800">{'error' in event ? event.error : 'An error occurred'}</div>
-                                </div>
-                            );
-
-                        default:
-                            return (
-                                <div key={index} className="p-3 bg-gray-50 border-l-4 border-gray-400 rounded">
-                                    <div className="text-xs text-gray-600 mb-1">{timestamp} - {event.type}</div>
-                                    <div className="text-sm font-mono">{JSON.stringify(event, null, 2)}</div>
-                                </div>
-                            );
-                    }
-                })
+                parsedMessages.map((message) => (
+                    <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[80%] p-4 rounded-lg ${message.role === 'user'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 border'
+                            }`}>
+                            <div className="text-xs opacity-70 mb-2">
+                                {message.role === 'user' ? 'You' : 'Assistant'} • {new Date(message.timestamp).toLocaleTimeString()}
+                            </div>
+                            <div className="whitespace-pre-wrap">
+                                {message.content}
+                                {!message.isComplete && <span className="animate-pulse">|</span>}
+                            </div>
+                        </div>
+                    </div>
+                ))
             )}
+        </div>
+    );
+
+    // Render detailed events (technical debug view)
+    const renderDetailedEvents = () => (
+        <div className="space-y-2 max-h-96 overflow-y-auto">
+            {context.events.map((event, index) => {
+                const timestamp = new Date().toLocaleTimeString();
+
+                switch (event.type) {
+                    case EventType.TEXT_MESSAGE_START:
+                        return (
+                            <div key={index} className="p-3 bg-blue-50 border-l-4 border-blue-400 rounded">
+                                <div className="text-xs text-blue-600 mb-1">{timestamp} - Message Start</div>
+                                <div className="text-sm">{'role' in event ? `${event.role} message starting...` : 'Message starting...'}</div>
+                            </div>
+                        );
+
+                    case EventType.TEXT_MESSAGE_CONTENT:
+                        return (
+                            <div key={index} className="p-3 bg-gray-50 border-l-4 border-gray-400 rounded">
+                                <div className="text-xs text-gray-600 mb-1">{timestamp} - Content</div>
+                                <div className="text-sm font-mono">{'delta' in event ? event.delta : 'Content update'}</div>
+                            </div>
+                        );
+
+                    case EventType.TEXT_MESSAGE_END:
+                        return (
+                            <div key={index} className="p-3 bg-green-50 border-l-4 border-green-400 rounded">
+                                <div className="text-xs text-green-600 mb-1">{timestamp} - Message Complete</div>
+                                <div className="text-sm">Message finished</div>
+                            </div>
+                        );
+
+                    case EventType.RUN_STARTED:
+                        return (
+                            <div key={index} className="p-3 bg-purple-50 border-l-4 border-purple-400 rounded">
+                                <div className="text-xs text-purple-600 mb-1">{timestamp} - Run Started</div>
+                                <div className="text-sm">Processing your request...</div>
+                            </div>
+                        );
+
+                    case EventType.RUN_FINISHED:
+                        return (
+                            <div key={index} className="p-3 bg-green-50 border-l-4 border-green-400 rounded">
+                                <div className="text-xs text-green-600 mb-1">{timestamp} - Run Finished</div>
+                                <div className="text-sm">Request completed successfully</div>
+                            </div>
+                        );
+
+                    case EventType.ERROR:
+                        return (
+                            <div key={index} className="p-3 bg-red-50 border-l-4 border-red-400 rounded">
+                                <div className="text-xs text-red-600 mb-1">{timestamp} - Error</div>
+                                <div className="text-sm text-red-800">{'error' in event ? event.error : 'An error occurred'}</div>
+                            </div>
+                        );
+
+                    default:
+                        return (
+                            <div key={index} className="p-3 bg-gray-50 border-l-4 border-gray-400 rounded">
+                                <div className="text-xs text-gray-600 mb-1">{timestamp} - {event.type}</div>
+                                <div className="text-sm font-mono">{JSON.stringify(event, null, 2)}</div>
+                            </div>
+                        );
+                }
+            })}
         </div>
     );
 
@@ -217,8 +295,18 @@ function App() {
 
                     {/* Messages Panel */}
                     <div className="bg-card p-6 rounded-lg border">
-                        <h2 className="text-2xl font-semibold mb-4">Conversation</h2>
-                        {renderEvents()}
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-2xl font-semibold">Conversation</h2>
+                            <button
+                                onClick={() => setShowDetailedEvents(!showDetailedEvents)}
+                                className="px-3 py-1 text-sm bg-secondary text-secondary-foreground rounded hover:bg-secondary/80"
+                            >
+                                {showDetailedEvents ? 'Show Messages' : 'Show Debug Events'}
+                            </button>
+                        </div>
+                        <div className="max-h-96 overflow-y-auto">
+                            {showDetailedEvents ? renderDetailedEvents() : renderMessages()}
+                        </div>
                     </div>
 
                     {/* Input Panel */}

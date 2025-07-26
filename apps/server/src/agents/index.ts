@@ -53,6 +53,12 @@ export class BaseAgent {
             if (this.config.validateOutput) {
                 const isValid = this.config.validateOutput(updatedContext);
                 if (!isValid) {
+                    console.log(`❌ Validation failed for agent ${this.config.name}. Context state:`, {
+                        hasState: !!updatedContext.state,
+                        agentResult: updatedContext.state?.[`${this.config.name}_result`],
+                        requirements: updatedContext.requirements,
+                        wireframe: updatedContext.wireframe
+                    });
                     throw new Error(`Agent ${this.config.name} output validation failed`);
                 }
             }
