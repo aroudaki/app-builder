@@ -32,8 +32,10 @@ Create a detailed wireframe description that includes:
 
 Be specific about placement, sizing, and relationships between components. This will directly inform the code generation phase.`,
 
-    validateOutput: (output: any) => {
-        const response = output.response || '';
+    validateOutput: (context: Context) => {
+        // Check if the agent result has a proper response
+        const agentResult = context.state?.[`wireframe_result`];
+        const response = agentResult?.response || '';
         return response.length > 150 &&
             response.includes('##') &&
             (response.includes('layout') || response.includes('component') || response.includes('wireframe'));

@@ -15,14 +15,130 @@ export interface Pipeline {
  * Select pipeline based on user input and context
  */
 export function selectPipeline(context: Context): Pipeline {
+    // Check if we're in the middle of a conversation flow
+    const conversationState = context.state?.conversationState;
+
+    if (conversationState === 'awaiting_clarification_response') {
+        // User is responding to clarification questions
+        return continueAfterClarificationPipeline;
+    }
+
     // Check if this is a modification request
     if (!context.isFirstRequest || context.generatedCode) {
         return modificationPipeline;
     }
 
-    // For first requests, use the initial pipeline
-    return initialPipeline;
+    // For first requests, start with clarification only
+    return clarificationOnlyPipeline;
 }
+
+/**
+ * Clarification Only Pipeline
+ * Runs only the clarification agent and waits for user response
+ */
+export const clarificationOnlyPipeline: Pipeline = {
+    name: 'clarification-only',
+    description: 'Clarification questions only, then wait for user response',
+    agents: ['clarification'],
+
+    run: async (context: Context): Promise<Context> => {
+        console.log(`❓ Starting clarification pipeline`);
+
+        let currentContext: Context = {
+            ...context,
+            state: {
+                ...context.state,
+                conversationState: 'clarification_in_progress'
+            }
+        };
+
+        try {
+            // Execute clarification agent
+            const agent = AgentRegistry.createAgent('clarification');
+            currentContext = await agent.execute(currentContext);
+
+            // Mark that we're waiting for user response
+            currentContext.state = {
+                ...currentContext.state,
+                conversationState: 'awaiting_clarification_response'
+            };
+
+            console.log(`❓ Clarification completed, waiting for user response`);
+            return currentContext;
+
+        } catch (error) {
+            console.error(`❌ Clarification pipeline failed:`, error);
+
+            return {
+                ...currentContext,
+                lastError: {
+                    agent: 'clarification',
+                    error: error instanceof Error ? error.message : String(error),
+                    timestamp: new Date().toISOString()
+                }
+            };
+        }
+    }
+};
+
+/**
+ * Continue After Clarification Pipeline  
+ * Runs requirements → wireframe → coding after user responds to clarification
+ */
+export const continueAfterClarificationPipeline: Pipeline = {
+    name: 'continue-after-clarification',
+    description: 'Continue with requirements, wireframe, and coding after clarification',
+    agents: ['requirements', 'wireframe', 'coding'],
+
+    run: async (context: Context): Promise<Context> => {
+        console.log(`🔄 Continuing pipeline after clarification: ${continueAfterClarificationPipeline.agents.join(' → ')}`);
+
+        let currentContext: Context = {
+            ...context,
+            state: {
+                ...context.state,
+                conversationState: 'processing'
+            }
+        };
+
+        try {
+            // Execute remaining agents in sequence
+            for (const agentName of continueAfterClarificationPipeline.agents) {
+                console.log(`🤖 Executing agent: ${agentName}`);
+
+                const agent = AgentRegistry.createAgent(agentName);
+                currentContext = await agent.execute(currentContext);
+
+                // Check if agent failed critically
+                if (currentContext.lastError && (currentContext.retryCount || 0) >= 3) {
+                    console.error(`💥 Pipeline failed at agent: ${agentName}`);
+                    break;
+                }
+            }
+
+            // Mark conversation as complete
+            currentContext.state = {
+                ...currentContext.state,
+                conversationState: 'completed'
+            };
+
+            console.log(`✅ Continue pipeline completed successfully`);
+            return currentContext;
+
+        } catch (error) {
+            console.error(`❌ Continue pipeline failed:`, error);
+
+            return {
+                ...currentContext,
+                lastError: {
+                    agent: 'pipeline',
+                    error: error instanceof Error ? error.message : String(error),
+                    timestamp: new Date().toISOString()
+                }
+            };
+        }
+    }
+};
 
 /**
  * Initial Application Generation Pipeline

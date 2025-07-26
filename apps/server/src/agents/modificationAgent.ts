@@ -62,10 +62,11 @@ Always test modifications using the codeRunner tool to ensure the application st
         return context.isFirstRequest || !context.generatedCode;
     },
 
-    validateOutput: (output: any) => {
-        // Validate that modifications were made
-        const hasModifiedCode = output.generatedCode && Object.keys(output.generatedCode).length > 0;
-        const hasResponse = output.response && output.response.length > 50;
+    validateOutput: (context: Context) => {
+        // Check if the agent result has successful modifications
+        const agentResult = context.state?.[`modification_result`];
+        const hasModifiedCode = context.generatedCode && Object.keys(context.generatedCode).length > 0;
+        const hasResponse = agentResult?.response && agentResult.response.length > 50;
         return hasModifiedCode || hasResponse;
     }
 };

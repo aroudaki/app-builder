@@ -101,13 +101,14 @@ Code Quality Standards:
 Your goal: Transform the Hello World boilerplate into the user's requested application.
 Start by examining what exists, then modify it to match requirements.`,
 
-    validateOutput: (output: any) => {
-        // Validate that the agent executed commands and got results
-        const hasCommands = output.toolCalls && output.toolCalls.length > 0;
-        const hasSuccessfulBuild = output.response &&
-            (output.response.includes('build successful') ||
-                output.response.includes('dev server') ||
-                output.response.includes('compiled successfully'));
+    validateOutput: (context: Context) => {
+        // Check if the agent result has successful execution
+        const agentResult = context.state?.[`coding_result`];
+        const hasCommands = agentResult?.toolCalls && agentResult.toolCalls.length > 0;
+        const hasSuccessfulBuild = agentResult?.response &&
+            (agentResult.response.includes('build successful') ||
+                agentResult.response.includes('dev server') ||
+                agentResult.response.includes('compiled successfully'));
         return hasCommands || hasSuccessfulBuild;
     }
 };

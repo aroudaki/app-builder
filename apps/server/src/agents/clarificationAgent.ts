@@ -30,10 +30,10 @@ Question areas to explore:
 Format your response as a friendly conversation, not a formal questionnaire.`,
 
     skipOn: (context: Context) => {
-        // Skip clarification if we're retrying or if we already have detailed requirements
-        return (context.retryCount || 0) > 0 ||
-            (context.requirements && context.requirements.length > 100) ||
-            context.userInput.length > 200; // Skip if user provided detailed input
+        // Skip clarification if we already have detailed requirements or if user provided detailed input
+        return (context.requirements && context.requirements.length > 100) ||
+            context.userInput.length > 200 ||
+            context.state?.conversationState === 'awaiting_clarification_response'; // Don't run again if already waiting
     },
 
     validateOutput: (context: Context) => {
