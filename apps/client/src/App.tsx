@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useAgUi } from './hooks/useAgUiSimple'
+import { EventType } from '@shared/index.js'
 import './App.css'
 
 function App() {
@@ -70,9 +71,67 @@ function App() {
                     No messages yet. Start a conversation!
                 </div>
             ) : (
-                <div className="text-muted-foreground">
-                    Messages will appear here when the full AG-UI integration is active.
-                </div>
+                context.events.map((event, index) => {
+                    const timestamp = new Date().toLocaleTimeString();
+
+                    switch (event.type) {
+                        case EventType.TEXT_MESSAGE_START:
+                            return (
+                                <div key={index} className="p-3 bg-blue-50 border-l-4 border-blue-400 rounded">
+                                    <div className="text-xs text-blue-600 mb-1">{timestamp} - Message Start</div>
+                                    <div className="text-sm">{'role' in event ? `${event.role} message starting...` : 'Message starting...'}</div>
+                                </div>
+                            );
+
+                        case EventType.TEXT_MESSAGE_CONTENT:
+                            return (
+                                <div key={index} className="p-3 bg-gray-50 border-l-4 border-gray-400 rounded">
+                                    <div className="text-xs text-gray-600 mb-1">{timestamp} - Content</div>
+                                    <div className="text-sm font-mono">{'delta' in event ? event.delta : 'Content update'}</div>
+                                </div>
+                            );
+
+                        case EventType.TEXT_MESSAGE_END:
+                            return (
+                                <div key={index} className="p-3 bg-green-50 border-l-4 border-green-400 rounded">
+                                    <div className="text-xs text-green-600 mb-1">{timestamp} - Message Complete</div>
+                                    <div className="text-sm">Message finished</div>
+                                </div>
+                            );
+
+                        case EventType.RUN_STARTED:
+                            return (
+                                <div key={index} className="p-3 bg-purple-50 border-l-4 border-purple-400 rounded">
+                                    <div className="text-xs text-purple-600 mb-1">{timestamp} - Run Started</div>
+                                    <div className="text-sm">Processing your request...</div>
+                                </div>
+                            );
+
+                        case EventType.RUN_FINISHED:
+                            return (
+                                <div key={index} className="p-3 bg-green-50 border-l-4 border-green-400 rounded">
+                                    <div className="text-xs text-green-600 mb-1">{timestamp} - Run Finished</div>
+                                    <div className="text-sm">Request completed successfully</div>
+                                </div>
+                            );
+
+                        case EventType.ERROR:
+                            return (
+                                <div key={index} className="p-3 bg-red-50 border-l-4 border-red-400 rounded">
+                                    <div className="text-xs text-red-600 mb-1">{timestamp} - Error</div>
+                                    <div className="text-sm text-red-800">{'error' in event ? event.error : 'An error occurred'}</div>
+                                </div>
+                            );
+
+                        default:
+                            return (
+                                <div key={index} className="p-3 bg-gray-50 border-l-4 border-gray-400 rounded">
+                                    <div className="text-xs text-gray-600 mb-1">{timestamp} - {event.type}</div>
+                                    <div className="text-sm font-mono">{JSON.stringify(event, null, 2)}</div>
+                                </div>
+                            );
+                    }
+                })
             )}
         </div>
     );
@@ -182,11 +241,23 @@ function App() {
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className="text-green-600">✅</span>
+                                <span>WebSocket Integration</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-green-600">✅</span>
                                 <span>Mock Pipeline System</span>
                             </div>
                             <div className="flex items-center gap-2">
+                                <span className="text-green-600">✅</span>
+                                <span>Browser Automation Tool</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-green-600">✅</span>
+                                <span>Container Tool</span>
+                            </div>
+                            <div className="flex items-center gap-2">
                                 <span className="text-yellow-600">⏳</span>
-                                <span>WebSocket Integration (in progress)</span>
+                                <span>Azure OpenAI Integration (ready to test)</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className="text-gray-400">⭕</span>
