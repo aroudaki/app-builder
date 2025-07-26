@@ -1385,7 +1385,7 @@ export function createMockWebSocket(): MockWebSocket {
 ### ❌ Task 10: Azure Resource Provisioning **[NOT STARTED]**
 
 **Status: NOT STARTED** ❌
-- ❌ Azure OpenAI service provisioning
+- ✅ Azure OpenAI service provisioning (already done and api keys are in .env file)
 - ❌ Azure Storage Account for snapshots and artifacts
 - ❌ Azure Static Web App for client hosting
 - ❌ Service principal and secret configuration
