@@ -1,7 +1,7 @@
 import { Context, AgentConfig, EventType, AgUiEvent, Tool } from '@shared/index.js';
 import { generateId } from '../utils/events.js';
 import { SimpleCodeRunner } from '../tools/codeRunner.js';
-import { BrowserTool } from '../tools/browser.js';
+import { BrowserAutomation, BrowserTool } from '../tools/browser.js';
 import { AppContainer } from '../tools/appContainer.js';
 
 /**
@@ -10,11 +10,13 @@ import { AppContainer } from '../tools/appContainer.js';
 export class BaseAgent {
     private codeRunner: SimpleCodeRunner;
     private browserTool: BrowserTool;
+    private browserAutomation: BrowserAutomation;
     private appContainer: AppContainer;
 
     constructor(public config: AgentConfig) {
         this.codeRunner = new SimpleCodeRunner();
         this.browserTool = new BrowserTool();
+        this.browserAutomation = new BrowserAutomation('default');
         // AppContainer will be initialized per conversation
         this.appContainer = new AppContainer('default');
     }
@@ -28,8 +30,9 @@ export class BaseAgent {
         try {
             console.log(`🤖 Executing agent: ${this.config.name}`);
 
-            // Initialize AppContainer for this conversation
+            // Initialize AppContainer and BrowserAutomation for this conversation
             this.appContainer = new AppContainer(context.conversationId);
+            this.browserAutomation = new BrowserAutomation(context.conversationId);
 
             // Check if agent should be skipped
             if (this.config.skipOn && this.config.skipOn(context)) {
@@ -381,11 +384,161 @@ export class BaseAgent {
     }
 
     /**
-     * Execute browser tool
+     * Execute browser automation tool with comprehensive testing capabilities
      */
     protected async executeBrowser(context: Context, result: any): Promise<any> {
-        // Placeholder for browser tool execution
-        return this.browserTool.takeScreenshot('https://example.com');
+        try {
+            // Initialize browser automation for this conversation
+            this.browserAutomation = new BrowserAutomation(context.conversationId, {
+                headless: true,
+                viewport: { width: 1920, height: 1080 }
+            });
+
+            await this.browserAutomation.initialize();
+
+            // Get the app URL from container execution results
+            let appUrl = 'http://localhost:3000'; // Default fallback
+
+            if (result && result.toolResults) {
+                const containerResult = result.toolResults.find((r: any) => r.type === 'app_container_execution');
+                if (containerResult && containerResult.commands) {
+                    // Look for dev server start command
+                    const devCommand = containerResult.commands.find((cmd: any) =>
+                        cmd.command.includes('npm run dev') && cmd.stdout.includes('localhost')
+                    );
+                    if (devCommand) {
+                        // Extract port from dev server output
+                        const portMatch = devCommand.stdout.match(/localhost:(\d+)/);
+                        if (portMatch) {
+                            appUrl = `http://localhost:${portMatch[1]}`;
+                        }
+                    }
+                }
+            }
+
+            console.log(`🌐 Testing app at: ${appUrl}`);
+
+            // Navigate to the app
+            await this.browserAutomation.navigateToApp(appUrl);
+
+            // Wait a moment for the app to load
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            // Take screenshot of the app
+            const screenshot = await this.browserAutomation.takeScreenshot({
+                fullPage: true,
+                format: 'png'
+            });
+
+            // Capture viewport for Computer Use Agent integration
+            const viewportCapture = await this.browserAutomation.captureViewport();
+
+            // Run basic accessibility check
+            let a11yReport = null;
+            try {
+                a11yReport = await this.browserAutomation.runAccessibilityCheck();
+            } catch (error) {
+                console.warn('Accessibility check failed:', error);
+            }
+
+            // Measure performance metrics
+            let performanceMetrics = null;
+            try {
+                performanceMetrics = await this.browserAutomation.measurePerformance();
+            } catch (error) {
+                console.warn('Performance measurement failed:', error);
+            }
+
+            // Check for console errors
+            const consoleErrors = await this.browserAutomation.getConsoleErrors();
+
+            // Test basic interactions if it's an interactive app
+            let interactionResults = [];
+            try {
+                // Look for common interactive elements
+                const inputs = viewportCapture.elements.filter(el =>
+                    el.tagName === 'input' || el.tagName === 'textarea'
+                );
+                const buttons = viewportCapture.elements.filter(el =>
+                    el.tagName === 'button' || el.clickable
+                );
+
+                // Test input fields
+                for (const input of inputs.slice(0, 2)) { // Test first 2 inputs
+                    try {
+                        await this.browserAutomation.click(input.selector);
+                        await this.browserAutomation.type(input.selector, 'Test Input');
+                        interactionResults.push({
+                            type: 'input_test',
+                            element: input.selector,
+                            success: true
+                        });
+                    } catch (error) {
+                        interactionResults.push({
+                            type: 'input_test',
+                            element: input.selector,
+                            success: false,
+                            error: error instanceof Error ? error.message : String(error)
+                        });
+                    }
+                }
+
+                // Test buttons
+                for (const button of buttons.slice(0, 2)) { // Test first 2 buttons
+                    try {
+                        await this.browserAutomation.click(button.selector);
+                        interactionResults.push({
+                            type: 'button_test',
+                            element: button.selector,
+                            success: true
+                        });
+                    } catch (error) {
+                        interactionResults.push({
+                            type: 'button_test',
+                            element: button.selector,
+                            success: false,
+                            error: error instanceof Error ? error.message : String(error)
+                        });
+                    }
+                }
+            } catch (error) {
+                console.warn('Interaction testing failed:', error);
+            }
+
+            // Cleanup browser resources
+            await this.browserAutomation.cleanup();
+
+            return {
+                type: 'browser_automation_complete',
+                appUrl,
+                screenshot: screenshot.toString('base64'),
+                viewportCapture: {
+                    ...viewportCapture,
+                    screenshot: viewportCapture.screenshot.toString('base64')
+                },
+                accessibility: a11yReport,
+                performance: performanceMetrics,
+                consoleErrors,
+                interactionResults,
+                elementsFound: viewportCapture.elements.length,
+                timestamp: new Date().toISOString()
+            };
+        } catch (error) {
+            console.error('Browser automation failed:', error);
+
+            // Ensure cleanup on error
+            try {
+                await this.browserAutomation.cleanup();
+            } catch (cleanupError) {
+                console.warn('Browser cleanup failed:', cleanupError);
+            }
+
+            return {
+                type: 'browser_automation_error',
+                error: error instanceof Error ? error.message : String(error),
+                timestamp: new Date().toISOString()
+            };
+        }
     }
 
     /**
