@@ -2,67 +2,96 @@ import { AgentConfig, Context, Tool } from '@shared/index.js';
 
 /**
  * Coding Agent Configuration
- * Generates complete web applications based on requirements and wireframes
+ * Generates complete web applications using Linux-like terminal commands
  */
 export const codingAgentConfig: AgentConfig = {
     name: 'coding',
-    description: 'Generates complete web applications based on requirements and wireframes',
+    description: 'Generates complete web applications using a Linux-like development environment',
     model: 'gpt-4',
     temperature: 0.2, // Lower temperature for more consistent code generation
     tools: [
         {
-            name: 'codeRunner',
-            description: 'Executes and tests generated code',
+            name: 'appContainer',
+            description: 'Execute bash commands in a Linux-like container environment. You can use all standard bash commands like ls, cd, cat, echo, mkdir, npm, node, etc.',
             parameters: {
                 type: 'object',
                 properties: {
-                    files: {
-                        type: 'object',
-                        description: 'Object with filename as key and file content as value'
-                    },
-                    framework: {
+                    command: {
                         type: 'string',
-                        description: 'Framework being used (react, vue, vanilla)'
+                        description: 'The bash command to execute (e.g., "pwd", "ls -la", "cat package.json", "echo content > file.tsx", "npm install", "npm run build")'
                     }
                 },
-                required: ['files']
+                required: ['command']
             }
         }
     ],
-    systemPrompt: `You are a senior full-stack developer that builds high-quality web applications.
+    systemPrompt: `You are a senior full-stack developer that builds web applications using a Linux terminal.
 
-Your role is to generate complete, production-ready code based on the requirements and wireframe specifications.
+You have access to a full Linux-like environment through the appContainer tool where you can execute ANY bash command.
 
-Code Generation Guidelines:
-1. Use modern React with TypeScript
-2. Implement responsive design with Tailwind CSS
-3. Follow best practices and clean code principles
-4. Include proper error handling and validation
-5. Add helpful comments for complex logic
-6. Ensure accessibility standards
-7. Generate complete file structure
+Your Development Workflow:
+1. Check current directory: pwd
+2. List existing files: ls -la
+3. Create project structure: mkdir -p src/components src/utils
+4. Write files using echo or cat with heredoc syntax
+5. Install dependencies: npm install
+6. Build the application: npm run build
+7. Fix any errors by reading files and editing them
+8. Start development server: npm run dev
+9. Continue iterating until you have a working app
 
-File Structure to Generate:
-- App.tsx (main component)
-- components/ (reusable components)
-- styles/ (CSS and styling)
-- utils/ (helper functions)
-- types/ (TypeScript definitions)
-- package.json (dependencies)
+Available Commands (use them naturally):
+- File Operations: ls, cd, pwd, cat, echo, touch, mkdir, rm, cp, mv
+- Text Processing: sed, grep, head, tail, wc
+- Node.js: npm install, npm run build, npm run dev, npm test, node, npx
+- Process Management: ps, kill
+- Environment: env, export
 
-Quality Standards:
-- Clean, readable, maintainable code
-- Proper TypeScript typing
-- Component composition over inheritance
-- Responsive and accessible design
-- Performance optimizations
+File Writing Examples:
+\`\`\`bash
+# Write a TypeScript file
+cat > src/App.tsx << 'EOF'
+import React from 'react'
+// Your code here
+EOF
 
-Test the generated code using the codeRunner tool to ensure it works correctly.`,
+# Write package.json
+echo '{
+  "name": "my-app",
+  "dependencies": {
+    "react": "^18.0.0"
+  }
+}' > package.json
+
+# Append to a file
+echo "export default App;" >> src/App.tsx
+\`\`\`
+
+Error Handling Strategy:
+- If npm install fails, read error and install missing packages
+- If build fails, read the error output with cat/grep
+- Use sed to fix file content: sed -i 's/old/new/g' filename
+- Continue iteration until build succeeds
+- Never give up on errors - analyze and fix them
+
+Code Quality Standards:
+- Modern React with TypeScript
+- Tailwind CSS for styling
+- Responsive design
+- Clean, readable code
+- Proper error handling
+- Accessible components
+
+Generate a COMPLETE working application that meets all requirements.
+Always test by building and running the app until it works perfectly.`,
 
     validateOutput: (output: any) => {
-        // Validate that code was generated
-        const hasCode = output.generatedCode && Object.keys(output.generatedCode).length > 0;
-        const hasResponse = output.response && output.response.length > 100;
-        return hasCode || hasResponse;
+        // Validate that the agent executed commands and got results
+        const hasCommands = output.toolCalls && output.toolCalls.length > 0;
+        const hasSuccessfulBuild = output.response &&
+            (output.response.includes('build successful') ||
+                output.response.includes('dev server') ||
+                output.response.includes('compiled successfully'));
+        return hasCommands || hasSuccessfulBuild;
     }
 };

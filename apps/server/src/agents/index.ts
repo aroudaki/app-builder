@@ -2,6 +2,7 @@ import { Context, AgentConfig, EventType, AgUiEvent, Tool } from '@shared/index.
 import { generateId } from '../utils/events.js';
 import { SimpleCodeRunner } from '../tools/codeRunner.js';
 import { BrowserTool } from '../tools/browser.js';
+import { AppContainer } from '../tools/appContainer.js';
 
 /**
  * Base Agent class implementing common execution logic and error handling
@@ -9,10 +10,13 @@ import { BrowserTool } from '../tools/browser.js';
 export class BaseAgent {
     private codeRunner: SimpleCodeRunner;
     private browserTool: BrowserTool;
+    private appContainer: AppContainer;
 
     constructor(public config: AgentConfig) {
         this.codeRunner = new SimpleCodeRunner();
         this.browserTool = new BrowserTool();
+        // AppContainer will be initialized per conversation
+        this.appContainer = new AppContainer('default');
     }
 
     /**
@@ -23,6 +27,9 @@ export class BaseAgent {
 
         try {
             console.log(`🤖 Executing agent: ${this.config.name}`);
+
+            // Initialize AppContainer for this conversation
+            this.appContainer = new AppContainer(context.conversationId);
 
             // Check if agent should be skipped
             if (this.config.skipOn && this.config.skipOn(context)) {
@@ -287,6 +294,8 @@ export class BaseAgent {
      */
     protected async executeTool(tool: Tool, context: Context, result: any): Promise<any> {
         switch (tool.name) {
+            case 'appContainer':
+                return this.executeAppContainer(context, result);
             case 'codeRunner':
                 return this.executeCodeRunner(context, result);
             case 'browser':
@@ -294,6 +303,100 @@ export class BaseAgent {
             default:
                 throw new Error(`Unknown tool: ${tool.name}`);
         }
+    }
+
+    /**
+     * Execute app container tool
+     */
+    protected async executeAppContainer(context: Context, result: any): Promise<any> {
+        // For the coding agent, we need to execute the bash command from the LLM result
+        // This is a simplified implementation - in a real scenario, the LLM would provide the command
+
+        if (this.config.name === 'coding') {
+            // Example commands for building an app based on user input
+            const commands = this.generateDevelopmentCommands(context);
+
+            const results = [];
+            for (const command of commands) {
+                console.log(`🔧 Executing: ${command}`);
+                const commandResult = await this.appContainer.executeCommand(command);
+                results.push({
+                    command,
+                    ...commandResult
+                });
+
+                // If a command fails, we might want to continue or abort
+                if (commandResult.exitCode !== 0) {
+                    console.warn(`⚠️ Command failed: ${command}`);
+                    // For coding agent, we continue to try to fix errors
+                }
+            }
+
+            return {
+                type: 'app_container_execution',
+                commands: results,
+                workDir: this.appContainer['workDir'], // Access private property for result
+                success: results.every(r => r.exitCode === 0)
+            };
+        }
+
+        // For other agents, return basic container info
+        return {
+            type: 'app_container_ready',
+            workDir: this.appContainer['workDir']
+        };
+    }
+
+    /**
+     * Generate development commands for the coding agent
+     */
+    protected generateDevelopmentCommands(context: Context): string[] {
+        const userInput = context.userInput;
+        const appType = this.determineAppType(userInput);
+
+        const commands = [
+            'pwd',
+            'ls -la',
+            'mkdir -p src/components src/utils',
+            // Generate package.json
+            `cat > package.json << 'EOF'
+${this.generatePackageJson(appType)}
+EOF`,
+            // Generate index.html
+            `cat > index.html << 'EOF'
+${this.generateIndexHtml(appType)}
+EOF`,
+            // Generate main.tsx
+            `cat > src/main.tsx << 'EOF'
+${this.generateMainTsx()}
+EOF`,
+            // Generate App.tsx
+            `cat > src/App.tsx << 'EOF'
+${this.generateAppTsx(appType, userInput)}
+EOF`,
+            // Generate App.css
+            `cat > src/App.css << 'EOF'
+${this.generateAppCss()}
+EOF`,
+            // Generate configs
+            `cat > tailwind.config.js << 'EOF'
+${this.generateTailwindConfig()}
+EOF`,
+            `cat > vite.config.ts << 'EOF'
+${this.generateViteConfig()}
+EOF`,
+            `cat > tsconfig.json << 'EOF'
+${this.generateTsConfig()}
+EOF`,
+            // Install dependencies
+            'npm install',
+            // Build the app
+            'npm run build',
+            // Start dev server (this will run in background)
+            'npm run dev'
+        ];
+
+        return commands;
     }
 
     /**
@@ -336,7 +439,21 @@ export class BaseAgent {
                 updates.wireframe = result.response;
                 break;
             case 'coding':
-                // For coding agent, use the generated code files
+                // For coding agent with container integration
+                if (result.toolResults && result.toolResults.length > 0) {
+                    const containerResult = result.toolResults.find((r: any) => r.type === 'app_container_execution');
+                    if (containerResult) {
+                        updates.state = {
+                            ...updates.state,
+                            containerExecution: containerResult,
+                            buildSuccessful: containerResult.success,
+                            workDir: containerResult.workDir,
+                            executedCommands: containerResult.commands
+                        };
+                    }
+                }
+
+                // Fallback to generated code files for backward compatibility
                 const generatedCode = (context as any).generatedCodeFiles || result.generatedCode || {};
                 updates.generatedCode = generatedCode;
                 updates.state = {
@@ -443,33 +560,37 @@ This wireframe provides a solid foundation for the implementation phase.`;
             (context as any).generatedCodeFiles = generatedCode;
         }
 
-        return `## Code Generation Complete
+        return `## 🚀 Building Your Application
 
-I've generated a complete React application based on your requirements and wireframe:
+I'm creating a complete React application based on your requirements using a Linux-like development environment.
 
-### Generated Components
-- **App.tsx** - Main application component with routing
-- **components/** - Reusable UI components  
-- **styles/** - Tailwind CSS configuration and custom styles
-- **utils/** - Helper functions and utilities
-- **types/** - TypeScript type definitions
+### 🔧 Development Process
+1. **Setting up project structure** - Creating directories and files
+2. **Generating code files** - Writing React components and configuration
+3. **Installing dependencies** - Running npm install
+4. **Building application** - Compiling TypeScript and optimizing
+5. **Starting dev server** - Launching the application
 
-### Features Implemented
-- Modern React with TypeScript
+### 📁 Generated Project Structure
+- **package.json** - Dependencies and build scripts
+- **index.html** - Main HTML entry point
+- **src/App.tsx** - Main React component with your features
+- **src/main.tsx** - React application bootstrap
+- **src/App.css** - Tailwind CSS styling
+- **vite.config.ts** - Build configuration
+- **tsconfig.json** - TypeScript configuration
+- **tailwind.config.js** - Tailwind CSS setup
+
+### ✨ Features Implemented
+- Modern React 18 with TypeScript
 - Responsive design with Tailwind CSS
 - Clean component architecture
-- Proper error handling and validation
-- Accessibility features
+- Interactive user interface
 - Production-ready code structure
+- Accessibility features
+- Error handling and validation
 
-### Code Quality
-- Clean, readable, and maintainable code
-- Proper TypeScript typing throughout
-- Component composition patterns
-- Responsive design patterns
-- Performance optimizations
-
-The application is being built and tested. You'll be able to preview it shortly!`;
+The application is being built in a containerized environment. Once the build completes successfully, you'll be able to preview your application!`;
     }
 
     /**
