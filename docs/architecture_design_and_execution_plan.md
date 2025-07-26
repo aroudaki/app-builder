@@ -1004,6 +1004,7 @@ export function createMockWebSocket(): MockWebSocket {
   - ✅ Tool integration framework (codeRunner, browser)
   - ✅ Agent validation and skip condition support
   - ✅ Context management and state updates
+  - ⚠️ **Note**: Azure OpenAI integration is placeholder, but has sophisticated fallback code generation
 - ✅ **Individual Agent Configurations**: 5 specialized agents created
   - ✅ `clarificationAgent.ts` - Asks clarifying questions (skips on retries/detailed input)
   - ✅ `requirementsAgent.ts` - Creates detailed technical specifications
@@ -1029,18 +1030,18 @@ export function createMockWebSocket(): MockWebSocket {
   - ✅ Agent-specific response generation
   - ✅ Validation functions for output quality
 - ✅ **Tool Integration**: Agents can execute tools
-  - ✅ Code runner integration for testing generated apps
-  - ✅ Browser tool for screenshots and validation
+  - ⚠️ **Note**: Tool integration framework complete, but actual tools are placeholders (see Task 8)
   - ✅ Extensible tool system architecture
 
-### ✅ Task 8: Container & Browser Tooling **[COMPLETED]**
+### ❌ Task 8: Container & Browser Tooling **[NOT STARTED]**
 
-**Status: COMPLETED** ✅
-- ✅ `tools/codeRunner.ts` implemented with temp directory approach
-- ✅ `tools/browser.ts` implemented with Playwright integration  
-- ✅ Error handling and logging for tool failures
-- ✅ Configuration for easy migration to Docker containers later
-- ✅ Tool integration in pipeline execution
+**Status: NOT STARTED** ❌
+- ❌ `tools/codeRunner.ts` - Only placeholder implementation (comment says "This will be implemented in Task 8")
+- ❌ `tools/browser.ts` - Only placeholder implementation (comment says "This will be implemented in Task 8")
+- ❌ Real code execution with temp directories
+- ❌ Playwright integration for browser automation
+- ❌ File system management for generated apps
+- ❌ App serving and testing capabilities
 
 ### ✅ Task 9: Client State Machine & Rendering **[COMPLETED]**
 
