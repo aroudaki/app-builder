@@ -23,6 +23,30 @@ npm run dev
 - `npm run test` - Run all tests
 - `npm run lint` - Lint all packages
 
+### 🧪 Testing
+
+The project includes comprehensive tests for the Container and Browser Automation tools:
+
+```bash
+# Run all tests (recommended after changes)
+npm test
+
+# Run complete CI workflow
+npm run test:ci
+
+# Run specific tool tests
+cd apps/server
+npm run test:container  # App Container tool tests
+npm run test:browser    # Browser Automation tool tests
+```
+
+**See [`apps/server/TESTING.md`](apps/server/TESTING.md) for detailed testing documentation.**
+
+Tests run automatically:
+- Before every Git commit (pre-commit hook)
+- On GitHub Actions CI/CD
+- After code builds (postbuild hook)
+
 ## Environment Variables
 
 Copy `.env.example` to `.env` and configure your Azure credentials.

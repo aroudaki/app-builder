@@ -1,0 +1,65 @@
+name: Tool Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-tools:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: |
+        npm ci
+        cd apps/server && npm ci
+        
+    - name: Install Playwright browsers
+      run: |
+        cd apps/server
+        npx playwright install --with-deps chromium firefox
+        
+    - name: Build project
+      run: |
+        npm run build
+        
+    - name: Run tool tests
+      run: |
+        cd apps/server
+        npm run test:ci
+        
+    - name: Generate coverage report
+      run: |
+        cd apps/server
+        npm run test:coverage
+        
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        directory: apps/server/coverage
+        flags: tools
+        name: tool-tests
+        
+    - name: Archive test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results-${{ matrix.node-version }}
+        path: |
+          apps/server/coverage/
+          apps/server/test-results/
