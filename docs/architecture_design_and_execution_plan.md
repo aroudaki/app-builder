@@ -481,29 +481,332 @@ export default function selectPipeline(context) {
 
 ### 5.5 Container & Browser Tools
 
-- **Simple Code Runner** (`tools/codeRunner.ts`): Uses temporary directories instead of Docker for POC simplicity:
+- **App Container Tool** (`tools/appContainer.ts`): Provides a Linux-like terminal environment for generated applications:
   ```ts
-  export class SimpleCodeRunner {
-    async runCode(files: Record<string, string>): Promise<RunResult> {
-      const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'app-'));
-      try {
-        // Write files to temp directory
-        // Run npm install, build, and tests
-        // Return results with build output and test status
-      } finally {
-        // Clean up after delay for debugging
-        setTimeout(() => fs.rm(tempDir, { recursive: true, force: true }), 5 * 60 * 1000);
+  export class AppContainer {
+    private workDir: string;
+    private processes: Map<string, ChildProcess> = new Map();
+    private currentDir: string = '/app';  // Virtual current directory
+    private fileSystem: Map<string, FileNode> = new Map();
+    
+    constructor(conversationId: string) {
+      // Create isolated workspace for this conversation
+      this.workDir = path.join(os.tmpdir(), 'app-builder', conversationId);
+      this.initializeFileSystem();
+    }
+    
+    // Main terminal interface - executes bash commands like a real Linux terminal
+    async executeCommand(command: string): Promise<CommandResult> {
+      // Parse and execute bash commands
+      const parsed = this.parseCommand(command);
+      
+      switch (parsed.command) {
+        case 'ls':
+          return this.ls(parsed.args, parsed.flags);
+        case 'cd':
+          return this.cd(parsed.args[0]);
+        case 'pwd':
+          return this.pwd();
+        case 'cat':
+          return this.cat(parsed.args);
+        case 'echo':
+          return this.echo(parsed.args, parsed.redirect);
+        case 'mkdir':
+          return this.mkdir(parsed.args, parsed.flags);
+        case 'rm':
+          return this.rm(parsed.args, parsed.flags);
+        case 'cp':
+          return this.cp(parsed.args[0], parsed.args[1], parsed.flags);
+        case 'mv':
+          return this.mv(parsed.args[0], parsed.args[1]);
+        case 'touch':
+          return this.touch(parsed.args);
+        case 'sed':
+          return this.sed(parsed.args, parsed.flags);
+        case 'grep':
+          return this.grep(parsed.pattern, parsed.files, parsed.flags);
+        case 'npm':
+          return this.npm(parsed.args);
+        case 'node':
+          return this.node(parsed.args);
+        case 'npx':
+          return this.npx(parsed.args);
+        default:
+          // Try to execute as a system command
+          return this.execSystemCommand(command);
       }
     }
     
-    async serveApp(distPath: string, port: number): Promise<string> {
-      // Use npx serve to host the built app
-      return `http://localhost:${port}`;
+    // Bash-like command implementations
+    private async ls(args: string[], flags: string[]): Promise<CommandResult> {
+      const path = this.resolvePath(args[0] || '.');
+      const files = await fs.readdir(this.toRealPath(path));
+      
+      if (flags.includes('l')) {
+        // Long format with permissions, size, date
+        const details = await Promise.all(files.map(async (file) => {
+          const stats = await fs.stat(this.toRealPath(path + '/' + file));
+          return this.formatLsLine(file, stats);
+        }));
+        return { stdout: details.join('\n'), stderr: '', exitCode: 0 };
+      }
+      
+      return { stdout: files.join('  '), stderr: '', exitCode: 0 };
+    }
+    
+    private async cat(files: string[]): Promise<CommandResult> {
+      try {
+        const contents = await Promise.all(
+          files.map(file => fs.readFile(this.toRealPath(this.resolvePath(file)), 'utf-8'))
+        );
+        return { stdout: contents.join('\n'), stderr: '', exitCode: 0 };
+      } catch (error) {
+        return { stdout: '', stderr: `cat: ${error.message}`, exitCode: 1 };
+      }
+    }
+    
+    private async sed(args: string[], flags: string[]): Promise<CommandResult> {
+      // Support common sed patterns like s/old/new/g
+      const inPlace = flags.includes('i');
+      const pattern = args[0];
+      const files = args.slice(1);
+      
+      // Parse sed pattern (e.g., s/search/replace/g)
+      const match = pattern.match(/^s\/(.+?)\/(.+?)\/(g?)$/);
+      if (!match) {
+        return { stdout: '', stderr: 'sed: invalid command', exitCode: 1 };
+      }
+      
+      const [, search, replace, global] = match;
+      const regex = new RegExp(search, global ? 'g' : '');
+      
+      for (const file of files) {
+        const realPath = this.toRealPath(this.resolvePath(file));
+        const content = await fs.readFile(realPath, 'utf-8');
+        const modified = content.replace(regex, replace);
+        
+        if (inPlace) {
+          await fs.writeFile(realPath, modified);
+        } else {
+          return { stdout: modified, stderr: '', exitCode: 0 };
+        }
+      }
+      
+      return { stdout: '', stderr: '', exitCode: 0 };
+    }
+    
+    private async npm(args: string[]): Promise<CommandResult> {
+      const subcommand = args[0];
+      const realPath = this.toRealPath(this.currentDir);
+      
+      // Execute npm command in the real directory
+      return new Promise((resolve) => {
+        const npm = spawn('npm', args, { 
+          cwd: realPath,
+          shell: true 
+        });
+        
+        let stdout = '';
+        let stderr = '';
+        
+        npm.stdout.on('data', (data) => {
+          stdout += data.toString();
+        });
+        
+        npm.stderr.on('data', (data) => {
+          stderr += data.toString();
+        });
+        
+        npm.on('close', (code) => {
+          resolve({ stdout, stderr, exitCode: code || 0 });
+        });
+        
+        // Store process for potential termination
+        if (subcommand === 'run' && args[1] === 'dev') {
+          this.processes.set('dev-server', npm);
+        }
+      });
+    }
+    
+    // Path resolution (handle relative and absolute paths)
+    private resolvePath(path: string): string {
+      if (path.startsWith('/')) {
+        return path;
+      }
+      if (path === '.') {
+        return this.currentDir;
+      }
+      if (path === '..') {
+        return this.currentDir.split('/').slice(0, -1).join('/') || '/';
+      }
+      return `${this.currentDir}/${path}`.replace(/\/+/g, '/');
+    }
+    
+    // Convert virtual path to real filesystem path
+    private toRealPath(virtualPath: string): string {
+      return path.join(this.workDir, virtualPath.slice(1)); // Remove leading /
+    }
+    
+    // Command result interface
+    export interface CommandResult {
+      stdout: string;
+      stderr: string;
+      exitCode: number;
     }
   }
   ```
-- **Playwright** (`tools/browser.ts`): headless Chromium launch, DOM inspection, screenshots.
-- **Migration Path**: Easy to swap `SimpleCodeRunner` with `DockerCodeRunner` for production isolation.
+
+- **Browser Automation Tool** (`tools/browserAutomation.ts`): Advanced browser control with future Computer Use Agent support:
+  ```ts
+  export class BrowserAutomation {
+    private browser: Browser;
+    private page: Page;
+    private recordingEnabled: boolean = false;
+    
+    async initialize(options?: BrowserOptions): Promise<void> {
+      // Launch Playwright browser (headless or headful)
+      // Set up viewport, user agent, etc.
+    }
+    
+    // Navigation and screenshots
+    async navigateToApp(url: string): Promise<void> {
+      // Navigate to the generated app URL
+    }
+    
+    async takeScreenshot(options?: ScreenshotOptions): Promise<Buffer> {
+      // Capture full page or element screenshot
+      // Support for annotations and highlighting
+    }
+    
+    // Interactive actions (foundation for Computer Use Agent)
+    async click(selector: string | Point): Promise<void> {
+      // Click on element or coordinates
+    }
+    
+    async type(selector: string, text: string): Promise<void> {
+      // Type text into input field
+    }
+    
+    async hover(selector: string | Point): Promise<void> {
+      // Hover over element
+    }
+    
+    async scrollTo(selector: string | Point): Promise<void> {
+      // Scroll to element or position
+    }
+    
+    // Advanced inspection
+    async getElementInfo(selector: string): Promise<ElementInfo> {
+      // Get element properties, computed styles, etc.
+    }
+    
+    async evaluateScript(script: string): Promise<any> {
+      // Execute JavaScript in page context
+    }
+    
+    async waitForCondition(condition: string, timeout?: number): Promise<void> {
+      // Wait for specific condition to be true
+    }
+    
+    // Recording and playback (for future automation)
+    async startRecording(): Promise<void> {
+      // Begin recording user actions
+    }
+    
+    async stopRecording(): Promise<Action[]> {
+      // Stop recording and return action sequence
+    }
+    
+    async playbackActions(actions: Action[]): Promise<void> {
+      // Replay recorded actions
+    }
+    
+    // Computer Use Agent preparation
+    async captureViewport(): Promise<ViewportCapture> {
+      // Capture viewport with element annotations
+      // Include bounding boxes, element IDs, clickable areas
+    }
+    
+    async executeAgentAction(action: AgentAction): Promise<ActionResult> {
+      // Execute high-level action from Computer Use Agent
+      // E.g., "Click the submit button", "Fill the form with test data"
+    }
+    
+    // Testing utilities
+    async runAccessibilityCheck(): Promise<A11yReport> {
+      // Check for accessibility issues
+    }
+    
+    async measurePerformance(): Promise<PerformanceMetrics> {
+      // Capture performance metrics
+    }
+    
+    async detectErrors(): Promise<ConsoleError[]> {
+      // Check for console errors and warnings
+    }
+  }
+  
+  // Types for Computer Use Agent integration
+  export interface AgentAction {
+    type: 'click' | 'type' | 'scroll' | 'wait' | 'assert';
+    target?: string; // Natural language description
+    value?: string;
+    coordinates?: Point;
+  }
+  
+  export interface ViewportCapture {
+    screenshot: Buffer;
+    elements: AnnotatedElement[];
+    dimensions: { width: number; height: number };
+  }
+  ```
+
+- **Integration with Coding Agent**: The coding agent uses bash commands naturally through tool calls:
+  ```ts
+  // Enhanced coding agent prompt
+  export const codingAgentConfig: AgentConfig = {
+    name: 'coding',
+    prompt: `You are a senior full-stack developer that builds web applications.
+    
+    You have access to a Linux terminal through the appContainer.executeCommand tool.
+    You can execute ANY bash command just like in a real terminal.
+    
+    Common commands you should use:
+    - pwd: Check current directory
+    - ls -la: List files with details
+    - cat [file]: Read file contents
+    - echo "[content]" > [file]: Write content to file
+    - sed -i 's/old/new/g' [file]: Edit files in place
+    - mkdir -p [directory]: Create directories
+    - npm install: Install dependencies
+    - npm run build: Build the application
+    - npm run dev: Start development server
+    - npm test: Run tests
+    
+    Your workflow should be:
+    1. Check current directory with pwd
+    2. Create necessary directories with mkdir
+    3. Write all required files using echo or cat
+    4. Run npm install to install dependencies
+    5. Run npm run build to build the app
+    6. Check for errors in the output
+    7. If there are errors, read the problematic files with cat
+    8. Fix errors using sed or by rewriting files
+    9. Repeat build until successful
+    10. Run npm run dev to start the app
+    
+    Continue iterating until you have a fully working application that meets all requirements.
+    Never give up on errors - analyze them and fix them.
+    `,
+    tools: ['appContainer'],
+    validateOutput: (output) => {
+      // Ensure the agent actually built and tested the app
+      return output.includes('build successful') || output.includes('dev server running');
+    }
+  };
+  ```
+
+- **Migration Path**: Easy to swap implementations while maintaining the same interface; ready for Docker containerization and Computer Use Agent integration.
 
 ### 5.6 Azure Infrastructure
 
@@ -1034,14 +1337,42 @@ export function createMockWebSocket(): MockWebSocket {
   - ✅ Extensible tool system architecture
 
 ### ❌ Task 8: Container & Browser Tooling **[NOT STARTED]**
+**App Container Tool** (`tools/appContainer.ts`):
+- ❌ Linux-like terminal environment with bash command execution
+- ❌ Full filesystem simulation with virtual paths (pwd, cd, ls, etc.)
+- ❌ File operations: cat, echo, touch, rm, cp, mv with proper bash syntax
+- ❌ Text processing: sed, grep, awk for file editing
+- ❌ Process management: npm, node, npx with real subprocess execution
+- ❌ I/O redirection: >, >>, <, | pipe support
+- ❌ Environment variables and working directory management
+- ❌ Error codes and stderr output matching Linux behavior
+- ❌ Long-running process support (npm run dev) with output streaming
+- ❌ Command history and session persistence
 
-**Status: NOT STARTED** ❌
-- ❌ `tools/codeRunner.ts` - Only placeholder implementation (comment says "This will be implemented in Task 8")
-- ❌ `tools/browser.ts` - Only placeholder implementation (comment says "This will be implemented in Task 8")
-- ❌ Real code execution with temp directories
-- ❌ Playwright integration for browser automation
-- ❌ File system management for generated apps
-- ❌ App serving and testing capabilities
+**Browser Automation Tool** (`tools/browserAutomation.ts`):
+- ❌ Playwright integration for headless/headful browser control
+- ❌ Screenshot capture with annotations
+- ❌ Interactive actions (click, type, scroll, hover)
+- ❌ Element inspection and JavaScript evaluation
+- ❌ Error detection and console monitoring
+- ❌ Performance metrics collection
+- ❌ Accessibility checking
+- ❌ Action recording and playback
+- ❌ Foundation for Computer Use Agent integration
+
+**Coding Agent Enhancement**:
+- ❌ Natural bash command usage in tool calls
+- ❌ Iterative development workflow with error analysis
+- ❌ File editing through sed/echo commands
+- ❌ Build error detection and automatic fixing
+- ❌ Test execution and result analysis
+- ❌ Continuous iteration until working app achieved
+
+**Tool Integration Framework**:
+- ❌ Tool registration system in BaseAgent
+- ❌ Seamless tool call execution with AG-UI events
+- ❌ Result handling and error propagation
+- ❌ Container lifecycle management per conversation
 
 ### ✅ Task 9: Client State Machine & Rendering **[COMPLETED]**
 
@@ -1202,6 +1533,300 @@ Expected structure for generated applications:
 │   └── utils/          # Helper functions
 ├── public/             # Static assets
 └── README.md          # Usage instructions
+```
+
+### Appendix D: Coding Agent Container Interaction
+
+**Example: Agent Building a Todo App**
+
+```typescript
+// Coding agent tool calls sequence
+const toolCalls: ToolCall[] = [
+  // 1. Check current directory
+  {
+    id: generateId(),
+    type: 'function',
+    function: {
+      name: 'appContainer.executeCommand',
+      arguments: JSON.stringify({ command: 'pwd' })
+    }
+  },
+  
+  // 2. List current files
+  {
+    id: generateId(),
+    type: 'function',
+    function: {
+      name: 'appContainer.executeCommand',
+      arguments: JSON.stringify({ command: 'ls -la' })
+    }
+  },
+  
+  // 3. Create package.json
+  {
+    id: generateId(),
+    type: 'function',
+    function: {
+      name: 'appContainer.executeCommand',
+      arguments: JSON.stringify({ 
+        command: `cat > package.json << 'EOF'
+{
+  "name": "todo-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "@vitejs/plugin-react": "^4.2.1",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0"
+  }
+}
+EOF`
+      })
+    }
+  },
+  
+  // 4. Create src directory
+  {
+    id: generateId(),
+    type: 'function',
+    function: {
+      name: 'appContainer.executeCommand',
+      arguments: JSON.stringify({ command: 'mkdir -p src' })
+    }
+  },
+  
+  // 5. Create main App component
+  {
+    id: generateId(),
+    type: 'function',
+    function: {
+      name: 'appContainer.executeCommand',
+      arguments: JSON.stringify({ 
+        command: `cat > src/App.tsx << 'EOF'
+import React, { useState } from 'react'
+
+interface Todo {
+  id: number
+  text: string
+  completed: boolean
+}
+
+function App() {
+  const [todos, setTodos] = useState<Todo[]>([])
+  const [inputText, setInputText] = useState('')
+
+  const addTodo = () => {
+    if (inputText.trim()) {
+      setTodos([...todos, {
+        id: Date.now(),
+        text: inputText.trim(),
+        completed: false
+      }])
+      setInputText('')
+    }
+  }
+
+  return (
+    <div className="max-w-md mx-auto mt-8 p-6 bg-white rounded-lg shadow-lg">
+      <h1 className="text-2xl font-bold mb-6">Todo App</h1>
+      
+      <div className="flex mb-4">
+        <input
+          type="text"
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && addTodo()}
+          placeholder="Add a new todo..."
+          className="flex-1 px-3 py-2 border rounded-l"
+        />
+        <button
+          onClick={addTodo}
+          className="px-4 py-2 bg-blue-500 text-white rounded-r"
+        >
+          Add
+        </button>
+      </div>
+
+      <ul className="space-y-2">
+        {todos.map(todo => (
+          <li key={todo.id} className="flex items-center space-x-2 p-2 border rounded">
+            <input
+              type="checkbox"
+              checked={todo.completed}
+              onChange={() => setTodos(todos.map(t => 
+                t.id === todo.id ? { ...t, completed: !t.completed } : t
+              ))}
+            />
+            <span className={todo.completed ? 'line-through text-gray-500' : ''}>
+              {todo.text}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      {todos.length === 0 && (
+        <p className="text-center text-gray-500 mt-4">No todos yet!</p>
+      )}
+    </div>
+  )
+}
+
+export default App
+EOF`
+      })
+    }
+  },
+  
+  // 6. Install dependencies
+  {
+    id: generateId(),
+    type: 'function',
+    function: {
+      name: 'appContainer.executeCommand',
+      arguments: JSON.stringify({ command: 'npm install' })
+    }
+  },
+  
+  // 7. Build the app
+  {
+    id: generateId(),
+    type: 'function',
+    function: {
+      name: 'appContainer.executeCommand',
+      arguments: JSON.stringify({ command: 'npm run build' })
+    }
+  }
+];
+
+// If build fails, agent analyzes error and fixes
+if (buildResult.exitCode !== 0) {
+  // Example: Missing index.html
+  const fixToolCalls = [
+    {
+      id: generateId(),
+      type: 'function',
+      function: {
+        name: 'appContainer.executeCommand',
+        arguments: JSON.stringify({ 
+          command: `cat > index.html << 'EOF'
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Todo App</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+EOF`
+        })
+      }
+    },
+    
+    {
+      id: generateId(),
+      type: 'function',
+      function: {
+        name: 'appContainer.executeCommand',
+        arguments: JSON.stringify({ 
+          command: `cat > src/main.tsx << 'EOF'
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App.tsx'
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)
+EOF`
+        })
+      }
+    },
+    
+    // Retry build
+    {
+      id: generateId(),
+      type: 'function',
+      function: {
+        name: 'appContainer.executeCommand',
+        arguments: JSON.stringify({ command: 'npm run build' })
+      }
+    }
+  ];
+}
+
+// Start dev server
+{
+  id: generateId(),
+  type: 'function',
+  function: {
+    name: 'appContainer.executeCommand',
+    arguments: JSON.stringify({ command: 'npm run dev' })
+  }
+}
+```
+
+**Error Analysis and Fixing Example**:
+```typescript
+// Agent analyzes build error and automatically fixes
+private analyzeErrorAndGenerateFix(error: string): ToolCall[] {
+  // TypeScript error: Property 'className' does not exist
+  if (error.includes("Property 'className' does not exist")) {
+    return [{
+      id: generateId(),
+      type: 'function',
+      function: {
+        name: 'appContainer.executeCommand',
+        arguments: JSON.stringify({ 
+          command: `sed -i 's/className=/className=/g' src/App.tsx` 
+        })
+      }
+    }];
+  }
+  
+  // Missing dependency error
+  if (error.includes('Cannot find module')) {
+    const module = error.match(/Cannot find module '(.+?)'/)?.[1];
+    return [{
+      id: generateId(),
+      type: 'function',
+      function: {
+        name: 'appContainer.executeCommand',
+        arguments: JSON.stringify({ command: `npm install ${module}` })
+      }
+    }];
+  }
+  
+  // Port already in use
+  if (error.includes('EADDRINUSE')) {
+    return [{
+      id: generateId(),
+      type: 'function',
+      function: {
+        name: 'appContainer.executeCommand',
+        arguments: JSON.stringify({ command: 'npm run dev -- --port 3001' })
+      }
+    }];
+  }
+  
+  return [];
+}
 ```
 
 ---
