@@ -41,6 +41,7 @@ function App() {
     const [showDetailedEvents, setShowDetailedEvents] = useState(false);
     const [userMessages, setUserMessages] = useState<ParsedMessage[]>([]);
     const chatContainerRef = useRef<HTMLDivElement>(null);
+    const debugContainerRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     // Initialize AG-UI
@@ -109,10 +110,32 @@ function App() {
 
     // Auto-scroll to bottom when new messages arrive
     useEffect(() => {
-        if (chatContainerRef.current) {
-            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        // Use requestAnimationFrame to ensure DOM is fully rendered
+        requestAnimationFrame(() => {
+            if (showDetailedEvents && debugContainerRef.current) {
+                const container = debugContainerRef.current;
+                container.scrollTop = container.scrollHeight;
+            } else if (!showDetailedEvents && chatContainerRef.current) {
+                const container = chatContainerRef.current;
+                container.scrollTop = container.scrollHeight;
+            }
+        });
+    }, [parsedMessages, context.events, showDetailedEvents]);
+
+    // Separate effect for debug auto-scroll
+    useEffect(() => {
+        if (showDetailedEvents && debugContainerRef.current) {
+            // Double requestAnimationFrame to ensure everything is rendered
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    if (debugContainerRef.current) {
+                        const container = debugContainerRef.current;
+                        container.scrollTop = container.scrollHeight;
+                    }
+                });
+            });
         }
-    }, [parsedMessages]);
+    }, [context.events.length, showDetailedEvents]);
 
     // Handle sending messages
     const handleSendMessage = useCallback(async () => {
@@ -219,7 +242,7 @@ function App() {
         </div>
     );    // Render detailed events (technical debug view)
     const renderDetailedEvents = () => (
-        <div className="space-y-2 max-h-96 overflow-y-auto">
+        <div className="space-y-2">
             {context.events.map((event, index) => {
                 const timestamp = new Date().toLocaleTimeString();
 
@@ -369,14 +392,6 @@ function App() {
                                 </span>
                             </div>
                             <div className="flex gap-1">
-                                {showDetailedEvents && (
-                                    <button
-                                        onClick={() => setShowDetailedEvents(false)}
-                                        className="px-2 py-1 text-xs bg-secondary text-secondary-foreground rounded hover:bg-secondary/80"
-                                    >
-                                        Chat
-                                    </button>
-                                )}
                                 <button
                                     onClick={() => setShowDetailedEvents(!showDetailedEvents)}
                                     className="px-2 py-1 text-xs bg-secondary text-secondary-foreground rounded hover:bg-secondary/80"
@@ -393,11 +408,22 @@ function App() {
                         </div>
 
                         {/* Messages */}
-                        <div
-                            ref={chatContainerRef}
-                            className="flex-1 overflow-y-auto p-4"
-                        >
-                            {showDetailedEvents ? renderDetailedEvents() : renderMessages()}
+                        <div className="flex-1 overflow-hidden">
+                            {/* Chat View */}
+                            <div
+                                ref={chatContainerRef}
+                                className={`h-full overflow-y-auto p-4 ${showDetailedEvents ? 'hidden' : 'block'}`}
+                            >
+                                {renderMessages()}
+                            </div>
+
+                            {/* Debug View */}
+                            <div
+                                ref={debugContainerRef}
+                                className={`h-full overflow-y-auto p-4 ${showDetailedEvents ? 'block' : 'hidden'}`}
+                            >
+                                {renderDetailedEvents()}
+                            </div>
                         </div>
 
                         {/* Input */}
