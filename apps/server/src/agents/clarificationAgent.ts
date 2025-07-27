@@ -27,7 +27,10 @@ Question areas to explore:
 4. Styling approach (CSS, Tailwind, styled-components)
 5. Specific features or constraints
 
-Format your response as a friendly conversation, not a formal questionnaire.`,
+Format your response as a friendly conversation, not a formal questionnaire.
+
+IMPORTANT: Always end your response with this exact text:
+"You can respond to one or more of these questions or simply click continue"`,
 
     skipOn: (context: Context) => {
         // Don't run again if already waiting for clarification response

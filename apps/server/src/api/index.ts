@@ -61,6 +61,7 @@ export async function handleWebSocketMessage(ws: WebSocket, input: RunAgentInput
             type: EventType.STATE_SNAPSHOT,
             conversationId: input.conversationId,
             state: finalContext.state || {},
+            allowContinue: finalContext.state?.conversationState === 'awaiting_clarification_response',
             timestamp: Date.now()
         };
         emitEvent(ws, stateSnapshotEvent);

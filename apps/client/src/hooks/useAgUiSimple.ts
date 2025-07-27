@@ -11,6 +11,7 @@ export function useAgUi() {
     const [events, setEvents] = useState<AgUiEvent[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [conversationId, setConversationId] = useState<string | null>(null);
+    const [allowContinue, setAllowContinue] = useState<boolean>(false);
 
     const clientRef = useRef<AgUiClient | null>(null);
 
@@ -55,6 +56,12 @@ export function useAgUi() {
                             break;
                         case EventType.RUN_FINISHED:
                             setState('connected');
+                            break;
+                        case EventType.STATE_SNAPSHOT:
+                            // Extract allowContinue flag from state snapshot
+                            if ('allowContinue' in event) {
+                                setAllowContinue(event.allowContinue || false);
+                            }
                             break;
                         case EventType.ERROR:
                             setState('error');
@@ -104,6 +111,7 @@ export function useAgUi() {
         console.log('🆕 Starting new conversation');
         setEvents([]);
         setError(null);
+        setAllowContinue(false); // Reset allowContinue for new conversation
 
         if (clientRef.current) {
             // Disconnect and create new client with new conversation ID
@@ -150,6 +158,12 @@ export function useAgUi() {
                             case EventType.RUN_FINISHED:
                                 setState('connected');
                                 break;
+                            case EventType.STATE_SNAPSHOT:
+                                // Extract allowContinue flag from state snapshot
+                                if ('allowContinue' in event) {
+                                    setAllowContinue(event.allowContinue || false);
+                                }
+                                break;
                             case EventType.ERROR:
                                 setState('error');
                                 if ('error' in event) {
@@ -184,6 +198,7 @@ export function useAgUi() {
     return {
         state,
         isConnected,
+        allowContinue,
         sendMessage,
         startNewConversation,
         context: {

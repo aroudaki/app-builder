@@ -18,6 +18,9 @@ yarn-debug.log*
 yarn-error.log*
 *.log
 
+# TypeScript
+*.tsbuildinfo
+
 # Temporary directories
 /tmp/app-*
 

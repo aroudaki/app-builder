@@ -90,6 +90,7 @@ export interface ErrorEvent extends BaseEvent {
 export interface StateSnapshotEvent extends BaseEvent {
     type: EventType.STATE_SNAPSHOT;
     state: Record<string, any>;
+    allowContinue?: boolean; // Indicates if user can continue without providing input
 }
 
 export interface StateDeltaEvent extends BaseEvent {

@@ -48,6 +48,7 @@ function App() {
     const {
         context,
         isConnected,
+        allowContinue,
         sendMessage,
         startNewConversation,
         clearError
@@ -175,6 +176,29 @@ function App() {
             setIsLoading(false);
         }
     }, [messageInput, isConnected, sendMessage]);
+
+    // Handle continuing without clarification response
+    const handleContinue = useCallback(async () => {
+        if (!isConnected) return;
+
+        try {
+            setIsLoading(true);
+
+            console.log('⏭️ Continuing without clarification response');
+
+            // Send empty message to continue
+            await sendMessage({
+                type: 'user_message',
+                content: '' // Empty content for continue
+            });
+
+            console.log('✅ Continue request sent successfully');
+        } catch (error) {
+            console.error('❌ Failed to send continue request:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [isConnected, sendMessage]);
 
     // Handle suggested prompt selection
     const handleSuggestedPrompt = useCallback((prompt: SuggestedPrompt) => {
@@ -310,6 +334,7 @@ function App() {
     // Render input area
     const renderInput = () => {
         const canSend = isConnected && !isLoading && messageInput.trim();
+        const canContinue = isConnected && !isLoading && allowContinue;
 
         return (
             <div className="space-y-3">
@@ -335,7 +360,7 @@ function App() {
                         value={messageInput}
                         onChange={(e) => setMessageInput(e.target.value)}
                         onKeyPress={handleKeyPress}
-                        placeholder="Describe your app idea..."
+                        placeholder={allowContinue ? "Provide additional details or click Continue to proceed..." : "Describe your app idea..."}
                         className="flex-1 p-3 border rounded-lg resize-none min-h-[44px] max-h-32"
                         rows={1}
                         disabled={!isConnected || isLoading}
@@ -346,10 +371,38 @@ function App() {
                         }}
                         onInput={adjustTextareaHeight}
                     />
+
+                    {/* Send Button */}
                     <button
                         onClick={handleSendMessage}
                         disabled={!canSend}
-                        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 h-11 flex items-center justify-center"
+                        className={`px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 h-11 flex items-center justify-center ${allowContinue ? 'hidden' : 'block'}`}
+                    >
+                        {isLoading ? (
+                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                            <span className="text-sm">Send</span>
+                        )}
+                    </button>
+
+                    {/* Continue Button */}
+                    <button
+                        onClick={handleContinue}
+                        disabled={!canContinue}
+                        className={`px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 h-11 flex items-center justify-center ${allowContinue ? 'block' : 'hidden'}`}
+                    >
+                        {isLoading ? (
+                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                            <span className="text-sm">Continue</span>
+                        )}
+                    </button>
+
+                    {/* Send Button (when continue is available) */}
+                    <button
+                        onClick={handleSendMessage}
+                        disabled={!canSend}
+                        className={`px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 h-11 flex items-center justify-center ${allowContinue ? 'block' : 'hidden'}`}
                     >
                         {isLoading ? (
                             <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
