@@ -41,6 +41,7 @@ function App() {
     const [showDetailedEvents, setShowDetailedEvents] = useState(false);
     const [userMessages, setUserMessages] = useState<ParsedMessage[]>([]);
     const chatContainerRef = useRef<HTMLDivElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     // Initialize AG-UI
     const {
@@ -50,6 +51,14 @@ function App() {
         startNewConversation,
         clearError
     } = useAgUi();
+
+    // Function to adjust textarea height
+    const adjustTextareaHeight = useCallback(() => {
+        if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto';
+            textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 128) + 'px';
+        }
+    }, []);
 
     // Parse events into readable messages
     const parsedMessages = useMemo(() => {
@@ -147,7 +156,11 @@ function App() {
     // Handle suggested prompt selection
     const handleSuggestedPrompt = useCallback((prompt: SuggestedPrompt) => {
         setMessageInput(prompt.fullPrompt);
-    }, []);
+        // Adjust textarea height after setting the content
+        setTimeout(() => {
+            adjustTextareaHeight();
+        }, 0);
+    }, [adjustTextareaHeight]);
 
     // Handle reset - clear all messages and start new conversation
     const handleReset = useCallback(() => {
@@ -295,6 +308,7 @@ function App() {
                 {/* Input Area */}
                 <div className="flex gap-2 items-end">
                     <textarea
+                        ref={textareaRef}
                         value={messageInput}
                         onChange={(e) => setMessageInput(e.target.value)}
                         onKeyPress={handleKeyPress}
@@ -307,11 +321,7 @@ function App() {
                             minHeight: '44px',
                             maxHeight: '128px'
                         }}
-                        onInput={(e) => {
-                            const target = e.target as HTMLTextAreaElement;
-                            target.style.height = 'auto';
-                            target.style.height = Math.min(target.scrollHeight, 128) + 'px';
-                        }}
+                        onInput={adjustTextareaHeight}
                     />
                     <button
                         onClick={handleSendMessage}
