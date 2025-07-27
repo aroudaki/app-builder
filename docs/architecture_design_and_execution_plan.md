@@ -52,7 +52,7 @@
 
 This document unifies the **technical architecture** and the **step-by-step execution plan** for building an AI-powered web application generator. The system comprises a **React/TypeScript client**, a **Node.js/Express/TypeScript server**, and a **multi-agent backend** orchestrated via **LangChain/LangGraph** and **Azure OpenAI**. Communication occurs over a **WebSocket channel** using the **AG‑UI protocol**, with the server remaining entirely stateless and the client holding session state.
 
-**Note**: The system is currently migrating from mock containers to real Docker containers for improved isolation and scalability. See `/docs/docker-migration-plan.md` for detailed migration strategy and implementation phases.
+**Note**: The system is currently migrating from mock containers to real Docker containers for improved isolation and scalability. The new architecture uses **temporary Docker containers** that are ephemeral and automatically removed after each session. Each container is created from a pre-built base image with boilerplate React app and dependencies pre-installed in `/generated-app` directory. See `/docs/docker-migration-plan.md` for detailed migration strategy and implementation phases.
 
 ---
 
@@ -164,7 +164,7 @@ The system can generate **any type of standalone web application** with the foll
 - **Version Tracking**: Maintains conversation history for rollback
 
 #### 🛠️ Real-Time Development Environment
-- **Docker Containers**: Each app runs in an isolated Docker environment
+- **Temporary Docker Containers**: Each app runs in an isolated, ephemeral Docker environment created from pre-built base images
 - **Live Reloading**: Changes are immediately reflected in the preview
 - **Error Detection**: Build errors are automatically detected and fixed
 - **Package Management**: Automatic dependency installation and management
@@ -231,10 +231,10 @@ The system employs specialized AI agents for different aspects of development:
 ### 2.6 Development and Deployment Features
 
 #### 🐳 Container Isolation
-- **Security**: Each app runs in an isolated Docker container
+- **Security**: Each app runs in an isolated, temporary Docker container that is automatically removed after the session
 - **Resource Limits**: CPU and memory constraints prevent resource abuse
-- **Clean Environment**: Fresh container for each conversation
-- **True Linux Environment**: Full bash shell with all standard tools
+- **Clean Environment**: Fresh container created from pre-built base image for each conversation
+- **True Linux Environment**: Full bash shell with all standard tools via Docker exec API
 
 #### 🔧 Development Tools Integration
 - **Package Managers**: npm, yarn support with automatic dependency resolution
@@ -343,7 +343,7 @@ The system employs specialized AI agents for different aspects of development:
 1. **Client** opens a WebSocket to `/agent?conversationId=<id>`.
 2. **Server** handles each message statelessly: loads context (from client or Blob), selects the agent pipeline (initial or modification), runs agents, streams AG‑UI events back, and asynchronously persists the updated snapshot to Azure Blob Storage.
 3. **Agents** (Clarification, Requirements, Wireframe, Coder, Modification) run in sequence on initial requests; follow‑ups bypass the first two agents.
-4. **Final app** is built in isolated Docker containers, tested with Playwright, then automatically deployed to Azure Static Web Apps with a permanent URL; the client receives a `RENDER_URL` event for `<iframe>` embedding and permanent access.
+4. **Final app** is built in temporary, isolated Docker containers created from pre-built base images, tested with Playwright, then automatically deployed to Azure Static Web Apps with a permanent URL; the client receives a `RENDER_URL` event for `<iframe>` embedding and permanent access.
 
 ---
 
@@ -777,7 +777,7 @@ export default function selectPipeline(context) {
 
 ### 6.5 Container & Browser Tools
 
-- **Docker Container System** (`tools/appContainer.ts`): Provides isolated Docker containers for generated applications with true Linux environments:
+- **Docker Container System** (`tools/appContainer.ts`): Provides isolated, temporary Docker containers for generated applications with true Linux environments:
   ```ts
   export class AppContainer {
     private runtime: ContainerRuntime;
@@ -788,7 +788,7 @@ export default function selectPipeline(context) {
     }
     
     async initialize(): Promise<void> {
-      // Create isolated Docker container for this conversation
+      // Create isolated, temporary Docker container for this conversation
       this.containerId = await this.runtime.createContainer({
         conversationId: this.conversationId,
         image: 'app-builder-base:latest',
@@ -796,13 +796,40 @@ export default function selectPipeline(context) {
         cpu: 512 // 50% CPU
       });
 
-      // Initialize with boilerplate React files
-      await this.runtime.uploadFiles(this.containerId, [
-        { path: '/app/src/App.tsx', content: this.getBoilerplateApp() },
-        { path: '/app/src/main.tsx', content: this.getBoilerplateMain() },
-        { path: '/app/package.json', content: this.getBasePackageJson() },
-        { path: '/app/index.html', content: this.getBaseIndexHtml() }
-      ]);
+      // Container starts with pre-installed boilerplate React app in /generated-app
+      // No need to upload files - they're already in the base image
+      // The coding agent will modify these files as needed
+    }
+
+    // Main terminal interface - executes real bash commands in temporary Docker container
+    async executeCommand(command: string): Promise<CommandResult> {
+      if (!this.containerId) throw new Error('Container not initialized');
+      return this.runtime.executeCommand(this.containerId, command);
+    }
+
+    async writeFile(path: string, content: string): Promise<void> {
+      if (!this.containerId) throw new Error('Container not initialized');
+      
+      // Use base64 encoding for safe file transfer to container
+      const base64Content = Buffer.from(content).toString('base64');
+      await this.executeCommand(
+        `echo "${base64Content}" | base64 -d > /generated-app/${path}`
+      );
+    }
+
+    async readFile(path: string): Promise<string> {
+      const result = await this.executeCommand(`cat /generated-app/${path}`);
+      return result.stdout;
+    }
+
+    async cleanup(): Promise<void> {
+      // Container is automatically removed after session ends
+      if (this.containerId) {
+        await this.runtime.stopContainer(this.containerId);
+      }
+    }
+  }
+  ```
     }
     
     // Main terminal interface - executes real bash commands in Docker container
@@ -849,7 +876,7 @@ export default function selectPipeline(context) {
   }
   ```
 
-- **Docker Container Manager** (`services/DockerContainerManager.ts`): Local Docker container management using Docker API:
+- **Docker Container Manager** (`services/DockerContainerManager.ts`): Local Docker container management using Docker API for temporary containers:
   ```ts
   export class DockerContainerManager implements ContainerRuntime {
     private docker: Docker;
@@ -864,16 +891,16 @@ export default function selectPipeline(context) {
     async createContainer(config: ContainerConfig): Promise<string> {
       const container = await this.docker.createContainer({
         Image: config.image || 'app-builder-base:latest',
-        name: `app-builder-${config.conversationId}`,
+        name: `app-builder-${config.conversationId}-${Date.now()}`,
         HostConfig: {
           Memory: config.memory || 512 * 1024 * 1024,
           CpuShares: config.cpu || 512,
-          AutoRemove: false,
+          AutoRemove: true, // Automatic cleanup when container stops
           NetworkMode: 'bridge',
           PortBindings: {
             '3001/tcp': [{ HostPort: '0' }] // Dynamic port assignment
           },
-          // Security settings
+          // Security settings for temporary containers
           ReadonlyRootfs: false,
           CapDrop: ['ALL'],
           CapAdd: ['CHOWN', 'SETUID', 'SETGID'],
@@ -883,7 +910,7 @@ export default function selectPipeline(context) {
           `CONVERSATION_ID=${config.conversationId}`,
           'NODE_ENV=development'
         ],
-        WorkingDir: '/app'
+        WorkingDir: '/generated-app' // Pre-built boilerplate app directory
       });
 
       await container.start();
@@ -899,7 +926,7 @@ export default function selectPipeline(context) {
         Cmd: ['bash', '-c', command],
         AttachStdout: true,
         AttachStderr: true,
-        WorkingDir: '/app'
+        WorkingDir: '/generated-app' // Execute commands in the boilerplate app directory
       });
 
       const stream = await exec.start({ Detach: false });
@@ -919,22 +946,45 @@ export default function selectPipeline(context) {
       const container = this.containers.get(conversationId);
       if (container) {
         await container.stop();
-        await container.remove();
+        // Container auto-removes due to AutoRemove: true setting
         this.containers.delete(conversationId);
       }
     }
   }
   ```
 
-- **Base Docker Image**: Pre-built React development environment (`docker/base/Dockerfile`):
+- **Base Docker Image**: Pre-built React development environment with boilerplate app (`docker/base/Dockerfile`):
   ```dockerfile
   FROM node:18-alpine
 
-  # Install necessary tools
-  RUN apk add --no-cache git bash curl python3 make g++ && rm -rf /var/cache/apk/*
+  # Install necessary tools and dependencies
+  RUN apk add --no-cache git bash curl python3 make g++ ncurses && rm -rf /var/cache/apk/*
 
-  # Create app directory
-  WORKDIR /app
+  # Create app user for security
+  RUN addgroup -g 1001 -S appuser && adduser -u 1001 -S appuser -G appuser
+
+  # Create app directory with proper permissions
+  WORKDIR /generated-app
+  RUN chown -R appuser:appuser /generated-app
+
+  # Switch to app user
+  USER appuser
+
+  # Copy and install boilerplate React app
+  COPY --chown=appuser:appuser ./boilerplate-app/package*.json ./
+  RUN npm ci --only=production && npm cache clean --force
+
+  # Copy the rest of the boilerplate app (starting point for transformations)
+  COPY --chown=appuser:appuser ./boilerplate-app/ ./
+
+  # Pre-build and install development dependencies
+  RUN npm run build || true && npm install
+
+  # Expose port for dev server
+  EXPOSE 3001
+
+  # Keep container running for exec commands
+  CMD ["tail", "-f", "/dev/null"]
 
   # Install global npm packages
   RUN npm install -g vite typescript @types/node @types/react @types/react-dom

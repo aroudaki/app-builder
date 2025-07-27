@@ -3,6 +3,8 @@
 ## Overview
 This document outlines the migration from the current mock container system to real Docker containers. The implementation is organized in two phases: **Local Docker Implementation** first, followed by **Azure Cloud Deployment** once local testing is complete.
 
+**Key Architecture Decision**: The system creates **temporary Docker containers** for each app building session. These containers are ephemeral and will be automatically removed after the session ends or after a timeout period. Each container is created from a pre-built base image that includes the boilerplate React app with all dependencies pre-installed.
+
 ## Current vs Target Architecture
 
 ### Current State
@@ -11,14 +13,17 @@ This document outlines the migration from the current mock container system to r
 - File system isolation through path mapping
 
 ### Target State - Phase 1 (Local)
-- Real Docker containers for each user session
+- Real Docker containers for each user session (temporary)
 - Docker Desktop for local development
 - Docker API for container management
+- Pre-built base image with boilerplate app and dependencies
+- Container exec API for command execution
 
 ### Target State - Phase 2 (Azure)
 - Azure Container Instances (ACI) for production
-- Azure Container Registry for image storage
+- Azure Container Registry for base image storage
 - Azure Web App Service deployment
+- Scheduled cleanup job for inactive containers
 
 ---
 
@@ -40,16 +45,19 @@ This document outlines the migration from the current mock container system to r
 **Note**: No docker-compose.yml needed at this stage. The existing development workflow using `npm run dev` continues to work with the current mock container system. Docker containerization will be implemented in subsequent tasks.
 
 ### Task 1.2: Base Docker Image Creation
-- [ ] Create `docker/base/Dockerfile` with React environment
-- [ ] Install Node.js 18 and necessary tools
-- [ ] Configure working directory and permissions
-- [ ] Install global npm packages required for React development
-- [ ] Set up proper entrypoint and health checks
+- [ ] Create `docker/base/Dockerfile` with pre-installed React boilerplate
+- [ ] Install Node.js 18 and build tools
+- [ ] Copy and install boilerplate app with all dependencies
+- [ ] Configure container for exec API access
+- [ ] Set up proper working directory and permissions
+- [ ] Optimize image layers for fast container creation
+
+**Architecture Note**: We will use Docker's built-in `exec` API for command execution instead of VNC or SSH. This is more lightweight and secure, allowing direct command execution through the Docker daemon.
 
 ```dockerfile
 FROM node:18-alpine
 
-# Install necessary tools
+# Install necessary tools and dependencies
 RUN apk add --no-cache \
     git \
     bash \
@@ -57,94 +65,143 @@ RUN apk add --no-cache \
     python3 \
     make \
     g++ \
+    # For better shell experience
+    ncurses \
     && rm -rf /var/cache/apk/*
 
-# Create app directory
-WORKDIR /app
+# Create app user for security
+RUN addgroup -g 1001 -S appuser && adduser -u 1001 -S appuser -G appuser
 
-# Install global npm packages
-RUN npm install -g \
-    vite \
-    typescript \
-    @types/node \
-    @types/react \
-    @types/react-dom
+# Create app directory with proper permissions
+WORKDIR /generated-app
+RUN chown -R appuser:appuser /generated-app
 
-# Create package.json for base React app
-COPY package.base.json ./package.json
+# Switch to app user
+USER appuser
 
-# Install base dependencies
+# Copy boilerplate app files first (this layer will be cached)
+# Note: This is the starting point that will be modified based on user requests
+COPY --chown=appuser:appuser ./boilerplate-app/package*.json ./
+
+# Install dependencies (this layer will be cached when package.json doesn't change)
+RUN npm ci --only=production && \
+    npm cache clean --force
+
+# Copy the rest of the boilerplate app
+# This forms the base that the coding agent will modify
+COPY --chown=appuser:appuser ./boilerplate-app/ ./
+
+# Pre-build the app to cache build artifacts
+RUN npm run build || true
+
+# Ensure development dependencies are also installed
 RUN npm install
 
-# Copy base app structure
-COPY ./base-app ./
+# Create directories that will be used during runtime
+RUN mkdir -p /generated-app/src /generated-app/public /generated-app/dist
 
 # Expose port for dev server
 EXPOSE 3001
 
-# Default command
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+# Health check to ensure container is ready
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "console.log('Container is healthy')" || exit 1
+
+# Use bash as the default shell for exec commands
+SHELL ["/bin/bash", "-c"]
+
+# Default command keeps container running and ready for exec commands
+CMD ["tail", "-f", "/dev/null"]
 ```
 
-### Task 1.3: Create Base Package Configuration
-- [ ] Create `docker/base/package.base.json` with React dependencies
-- [ ] Include all necessary dev dependencies
-- [ ] Configure scripts for development and building
+**Key Design Decisions**:
+1. **No VNC/SSH**: Using Docker's native `exec` API for command execution
+2. **Pre-installed Dependencies**: All npm packages installed in the image to speed up container creation
+3. **Security**: Running as non-root user (appuser)
+4. **Persistent Container**: Using `tail -f /dev/null` to keep container running for exec commands
+5. **Cached Layers**: Optimized Dockerfile for efficient layer caching
+6. **Working Directory**: `/generated-app` - starts with boilerplate but will be modified by coding agent
 
-```json
-{
-  "name": "react-app",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "clsx": "^2.0.0",
-    "tailwind-merge": "^2.0.0"
-  },
-  "devDependencies": {
-    "@types/react": "^18.2.43",
-    "@types/react-dom": "^18.2.17",
-    "@vitejs/plugin-react": "^4.2.1",
-    "autoprefixer": "^10.4.16",
-    "postcss": "^8.4.32",
-    "tailwindcss": "^3.3.6",
-    "typescript": "^5.2.2",
-    "vite": "^5.0.8"
-  }
-}
+### Task 1.3: Create Boilerplate App Structure
+- [ ] Create `docker/base/boilerplate-app/` directory
+- [ ] Copy current boilerplate React app files
+- [ ] Ensure all necessary config files are included (vite.config.ts, tailwind.config.js, etc.)
+- [ ] Create proper .dockerignore to exclude unnecessary files
+- [ ] Verify [`package.json`](package.json ) includes all required dependencies
+
+```
+docker/base/boilerplate-app/
+├── package.json
+├── package-lock.json
+├── index.html
+├── vite.config.ts
+├── tsconfig.json
+├── tsconfig.node.json
+├── tailwind.config.js
+├── postcss.config.js
+├── .gitignore
+├── public/
+│   └── vite.svg
+└── src/
+    ├── App.tsx        # This will be modified by coding agent
+    ├── App.css        # This will be modified by coding agent
+    ├── index.css
+    ├── main.tsx
+    └── vite-env.d.ts
 ```
 
-### Task 1.4: Create Base App Structure
-- [ ] Create `docker/base/base-app/` directory structure
-- [ ] Add boilerplate React files (App.tsx, main.tsx, index.html)
-- [ ] Configure Vite and Tailwind CSS
-- [ ] Add TypeScript configuration
+**Important Note**: The boilerplate app in `/generated-app` is just the starting point. When a user requests a specific app (e.g., todo app, dashboard, etc.), the coding agent will modify these files using the container's exec API to transform the boilerplate into the requested application.
 
-### Task 1.5: Build and Test Base Image
+### Task 1.4: Build and Test Base Image
 - [ ] Build the base Docker image locally
-- [ ] Test image creation and startup
-- [ ] Verify React app runs correctly in container
-- [ ] Test port mapping and connectivity
+- [ ] Test container creation from base image
+- [ ] Verify exec commands work properly
+- [ ] Test file modifications using base64 approach
+- [ ] Measure container startup time
+- [ ] Verify dev server starts correctly
 
 ```bash
 # Build the base image
 cd docker/base
 docker build -t app-builder-base:latest .
 
-# Test the image
-docker run -p 3001:3001 app-builder-base:latest
+# Test creating a container from the image
+docker run -d --name test-container -p 3001:3001 app-builder-base:latest
+
+# Test exec command execution
+docker exec test-container ls -la /generated-app
+docker exec test-container cat /generated-app/package.json
+docker exec test-container npm run dev
+
+# Test file modification with base64 (simulating what coding agent will do)
+echo "console.log('Modified by coding agent')" | base64 | docker exec -i test-container sh -c 'base64 -d > /generated-app/test.js'
+docker exec test-container cat /generated-app/test.js
+
+# Test modifying App.tsx (like the coding agent would)
+echo "import React from 'react'; export default function App() { return <div>User requested app</div>; }" | base64 | docker exec -i test-container sh -c 'base64 -d > /generated-app/src/App.tsx'
+
+# Cleanup
+docker stop test-container
+docker rm test-container
 ```
+
+### Task 1.5: Container Lifecycle Management Design
+- [ ] Design temporary container naming convention: `app-builder-{conversationId}-{timestamp}`
+- [ ] Define container TTL (Time To Live) policy
+- [ ] Implement container cleanup strategy for local development
+- [ ] Document resource limits for each container
+- [ ] Plan for concurrent container limits
+
+**Container Lifecycle Policy**:
+- **Local Development**: Containers persist until manually removed (easier debugging)
+- **Production (Azure)**: Containers auto-removed after 30 minutes of inactivity
+- **Resource Limits**: Each container limited to 512MB RAM, 0.5 CPU
+- **Concurrent Limit**: Maximum 10 active containers per host
 
 ---
 
-### Task 2.1: Docker Container Manager Implementation
+## Phase 2: Container Manager Implementation
+
 ### Task 2.1: Docker Container Manager Implementation
 - [ ] Install dockerode dependency (`npm install dockerode @types/dockerode`)
 - [ ] Create `apps/server/src/services/DockerContainerManager.ts`
@@ -182,7 +239,7 @@ export class DockerContainerManager {
         `CONVERSATION_ID=${config.conversationId}`,
         'NODE_ENV=development'
       ],
-      WorkingDir: '/app'
+      WorkingDir: '/generated-app'
     });
 
     await container.start();
@@ -198,7 +255,7 @@ export class DockerContainerManager {
       Cmd: ['sh', '-c', command],
       AttachStdout: true,
       AttachStderr: true,
-      WorkingDir: '/app'
+      WorkingDir: '/generated-app'
     });
 
     const stream = await exec.start({ Detach: false });
@@ -279,8 +336,8 @@ export class AppContainer {
 
     // Initialize with boilerplate files
     await this.runtime.uploadFiles(this.containerId, [
-      { path: '/app/src/App.tsx', content: this.getBoilerplateApp() },
-      { path: '/app/src/main.tsx', content: this.getBoilerplateMain() },
+      { path: '/generated-app/src/App.tsx', content: this.getBoilerplateApp() },
+      { path: '/generated-app/src/main.tsx', content: this.getBoilerplateMain() },
       // ... other files
     ]);
   }
