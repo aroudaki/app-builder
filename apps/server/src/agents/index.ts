@@ -474,12 +474,9 @@ export class BaseAgent {
             // Update App.tsx with the generated content
             if (generatedCode['src/App.tsx']) {
                 console.log('🐛 DEBUG: Adding App.tsx modification command');
-
-                // Use a different approach to write the file
-                const appTsxContent = generatedCode['src/App.tsx'].replace(/'/g, "'\"'\"'"); // Escape single quotes
-                modificationCommands.push(`cat << 'APPEOF' > src/App.tsx
-${generatedCode['src/App.tsx']}
-APPEOF`);
+                // Use base64 encoding to avoid shell escaping issues
+                const base64Content = Buffer.from(generatedCode['src/App.tsx']).toString('base64');
+                modificationCommands.push(`echo '${base64Content}' | base64 -d > src/App.tsx`);
             } else {
                 console.log('🐛 DEBUG: WARNING - No App.tsx content generated!');
             }
@@ -487,9 +484,8 @@ APPEOF`);
             // Update other key files if needed
             if (generatedCode['src/App.css']) {
                 console.log('🐛 DEBUG: Adding App.css modification command');
-                modificationCommands.push(`cat << 'CSSEOF' > src/App.css
-${generatedCode['src/App.css']}
-CSSEOF`);
+                const base64Content = Buffer.from(generatedCode['src/App.css']).toString('base64');
+                modificationCommands.push(`echo '${base64Content}' | base64 -d > src/App.css`);
             }
 
             // Add any new components
@@ -499,9 +495,8 @@ CSSEOF`);
                     // Create directory if needed
                     const dir = filePath.substring(0, filePath.lastIndexOf('/'));
                     modificationCommands.push(`mkdir -p ${dir}`);
-                    modificationCommands.push(`cat << 'COMPEOF' > ${filePath}
-${content}
-COMPEOF`);
+                    const base64Content = Buffer.from(content).toString('base64');
+                    modificationCommands.push(`echo '${base64Content}' | base64 -d > ${filePath}`);
                 }
             }
 
