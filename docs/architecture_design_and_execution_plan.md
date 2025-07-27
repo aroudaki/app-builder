@@ -3,10 +3,22 @@
 ## Table of Contents
 
 1. [Introduction](#introduction)
-2. [High-Level Architecture](#high-level-architecture)
-3. [Transport Protocol](#transport-protocol)
-4. [Agent Pipeline](#agent-pipeline)
-5. [Detailed Technical Design](#detailed-technical-design)
+2. [Features and User Stories](#features-and-user-stories)
+   - 2.1 [Core Application Generation Features](#core-application-generation-features)
+   - 2.2 [Technical Stack and Framework Support](#technical-stack-and-framework-support)
+   - 2.3 [Interactive Development Features](#interactive-development-features)
+   - 2.4 [Agent-Powered Workflow](#agent-powered-workflow)
+   - 2.5 [Conversation and State Management](#conversation-and-state-management)
+   - 2.6 [Development and Deployment Features](#development-and-deployment-features)
+   - 2.7 [Browser Automation and Testing](#browser-automation-and-testing)
+   - 2.8 [Error Handling and Recovery](#error-handling-and-recovery)
+   - 2.9 [Scalability and Performance](#scalability-and-performance)
+   - 2.10 [Security and Compliance](#security-and-compliance)
+   - 2.11 [Future Improvements and Roadmap](#future-improvements-and-roadmap)
+3. [High-Level Architecture](#high-level-architecture)
+4. [Transport Protocol](#transport-protocol)
+5. [Agent Pipeline](#agent-pipeline)
+6. [Detailed Technical Design](#detailed-technical-design)
    - 5.1 [Shared Types & Utilities](#shared-types--utilities)
    - 5.2 [Server Components](#server-components)
    - 5.3 [Client Components](#client-components)
@@ -40,18 +52,302 @@
 
 This document unifies the **technical architecture** and the **step-by-step execution plan** for building an AI-powered web application generator. The system comprises a **React/TypeScript client**, a **Node.js/Express/TypeScript server**, and a **multi-agent backend** orchestrated via **LangChain/LangGraph** and **Azure OpenAI**. Communication occurs over a **WebSocket channel** using the **AG‑UI protocol**, with the server remaining entirely stateless and the client holding session state.
 
+**Note**: The system is currently migrating from mock containers to real Docker containers for improved isolation and scalability. See `/docs/docker-migration-plan.md` for detailed migration strategy and implementation phases.
+
 ---
 
-## 2. High-Level Architecture
+## 2. Features and User Stories
+
+### 2.1 Core Application Generation Features
+
+#### 🚀 Intelligent App Generation
+- **Natural Language Input**: Users describe their app requirements in plain English
+- **Multi-Turn Conversations**: System asks clarifying questions to understand exact needs, user can also send follow up requests to keep modifying the generated app.
+- **Real-Time Generation**: Live streaming of the generation process with progress updates
+- **Instant Preview**: Generated apps are immediately viewable in an embedded iframe or in a new browser tab
+- **Permanent Deployment**: Each generated app is automatically deployed to Azure Static Web Apps with a unique URL tied to the conversation ID, making it permanently accessible for future use
+- **Persistent Access**: Users can return to their apps anytime using the unique conversation ID, without losing any work or modifications
+
+**User Story**: *"As a product manager, I want to describe my app idea in natural language and get a working prototype within minutes that I can share with stakeholders via a permanent URL, and return to later for further iterations."*
+
+#### 🎯 Supported Application Types
+The system can generate **any type of standalone web application** with the following capabilities and constraints:
+
+**✅ Supported Application Categories** (examples, not limited to):
+1. **Todo/Task Management Apps**
+   - CRUD operations (Create, Read, Update, Delete)
+   - Local storage persistence
+   - Task filtering and sorting
+   - Responsive design
+
+2. **Dashboard Applications**
+   - Data visualization components
+   - Interactive charts and graphs
+   - Metric cards and KPIs
+   - Real-time data displays via API integration
+
+3. **Form Applications**
+   - Contact forms, feedback forms, surveys
+   - Input validation and error handling
+   - Form submission to external APIs
+   - Multi-step form wizards
+
+4. **Landing Pages**
+   - Marketing pages with hero sections
+   - Feature showcases and testimonials
+   - Call-to-action buttons
+   - Responsive layouts
+
+5. **E-commerce Interfaces**
+   - Product catalogs and galleries
+   - Shopping cart functionality (frontend only)
+   - Integration with payment APIs (Stripe, PayPal, etc.)
+   - Product search and filtering
+
+6. **Data Visualization Apps**
+   - Interactive charts and graphs
+   - Real-time dashboards connecting to APIs
+   - Financial tracking applications
+   - Analytics and reporting interfaces
+
+7. **Productivity Tools**
+   - Note-taking applications
+   - Calendar interfaces
+   - Project management tools
+   - Time tracking applications
+
+8. **Entertainment & Media**
+   - Image galleries and portfolios
+   - Music players (with streaming APIs)
+   - Game interfaces and simple games
+   - Interactive media experiences
+
+**🔌 API Integration Capabilities**:
+- **Public REST APIs**: Seamless integration with any public API
+- **Private APIs**: Support for APIs requiring authentication (user-provided auth tokens)
+- **Real-time Data**: WebSocket connections to live data sources
+- **Third-party Services**: Integration with services like Stripe, Google Maps, social media APIs, etc.
+
+**⚠️ System Constraints**:
+- **No Backend Generation**: Cannot generate server-side code, databases, or backend APIs
+- **No Database**: Cannot create or manage databases (uses client-side storage or external APIs)
+- **Frontend Only**: All applications are client-side web applications
+- **External Dependencies**: Can integrate with external services but cannot create them
+
+**User Story**: *"As a startup founder, I want to generate any type of web application (dashboards, forms, games, tools) that can connect to my existing APIs or third-party services, without being limited to predefined categories."*
+
+### 2.2 Technical Stack and Framework Support
+
+#### 🛠️ Modern Technology Stack
+- **Frontend**: React 18 + TypeScript + Vite
+- **Styling**: Tailwind CSS + CSS Modules
+- **Build System**: Vite with hot module replacement
+- **Package Management**: npm with automatic dependency resolution
+- **Code Quality**: ESLint + Prettier integration
+
+#### 🏗️ Generated Code Quality
+- **Production-Ready**: All generated code follows best practices
+- **TypeScript Support**: Full type safety and IntelliSense
+- **Responsive Design**: Mobile-first approach with Tailwind CSS
+- **Component Architecture**: Modular, reusable React components
+- **Error Boundaries**: Proper error handling and user feedback
+- **Accessibility**: WCAG-compliant markup and ARIA attributes
+
+**User Story**: *"As a developer, I want the generated code to be production-ready and follow modern best practices, so I can use it as a starting point for real projects."*
+
+### 2.3 Interactive Development Features
+
+#### 🔄 Iterative Development
+- **App Modification**: Users can request changes to existing generated apps
+- **Code Analysis**: System understands the current app structure
+- **Incremental Updates**: Only modifies necessary parts of the code
+- **Version Tracking**: Maintains conversation history for rollback
+
+#### 🛠️ Real-Time Development Environment
+- **Docker Containers**: Each app runs in an isolated Docker environment
+- **Live Reloading**: Changes are immediately reflected in the preview
+- **Error Detection**: Build errors are automatically detected and fixed
+- **Package Management**: Automatic dependency installation and management
+
+**User Story**: *"As a product owner, I want to iterate on my app by requesting specific changes (e.g., 'make the buttons blue', 'add a search feature') and see the updates immediately."*
+
+### 2.4 Agent-Powered Workflow
+
+#### 🤖 Multi-Agent System
+The system employs specialized AI agents for different aspects of development:
+
+1. **Clarification Agent**
+   - Asks intelligent follow-up questions
+   - Understands ambiguous requirements
+   - Skips redundant questions on iterations
+
+2. **Requirements Agent**
+   - Converts natural language to technical specifications
+   - Identifies data models and relationships
+   - Defines functional and non-functional requirements
+
+3. **Wireframe Agent**
+   - Creates visual layouts and component structures
+   - Designs user flow and navigation
+   - Considers responsive design principles
+
+4. **Coding Agent**
+   - Generates complete, working applications
+   - Implements all required functionality
+   - Handles error detection and fixing
+   - Manages build processes and dependencies
+
+5. **Modification Agent**
+   - Understands existing code structure
+   - Makes targeted changes without breaking functionality
+   - Optimizes and refactors when needed
+
+**User Story**: *"As a business analyst, I want the system to understand my requirements like a human developer would, asking clarifying questions and providing professional-quality deliverables."*
+
+### 2.5 Conversation and State Management
+
+#### 💬 Stateful Conversations
+- **Session Persistence**: Conversations survive browser refreshes
+- **Context Awareness**: System remembers previous discussions
+- **Multi-Device Support**: Continue conversations across devices
+- **Conversation History**: Full audit trail of all interactions
+- **Permanent App URLs**: Each generated app gets a unique, permanent URL based on conversation ID
+- **Long-term Access**: Apps remain accessible indefinitely via their unique URLs
+
+#### 📊 Real-Time Communication
+- **WebSocket Protocol**: Low-latency, bidirectional communication
+- **AG-UI Standard**: Industry-standard protocol for AI-human interaction
+- **Streaming Responses**: Real-time text and progress updates
+- **Error Recovery**: Automatic reconnection and state restoration
+
+#### 🌐 Permanent Deployment
+- **Azure Static Web Apps**: Automatic deployment to Azure infrastructure
+- **Unique URLs**: Each app gets a permanent URL like `https://app-builder-{conversationId}.azurestaticapps.net`
+- **Zero Maintenance**: Apps run independently without ongoing server costs
+- **Instant Sharing**: Share app URLs immediately with team members or stakeholders
+
+**User Story**: *"As a remote team member, I want to start a conversation on my laptop, continue it on my mobile device, and have my colleagues access the final app via a permanent URL that never expires."*
+
+### 2.6 Development and Deployment Features
+
+#### 🐳 Container Isolation
+- **Security**: Each app runs in an isolated Docker container
+- **Resource Limits**: CPU and memory constraints prevent resource abuse
+- **Clean Environment**: Fresh container for each conversation
+- **True Linux Environment**: Full bash shell with all standard tools
+
+#### 🔧 Development Tools Integration
+- **Package Managers**: npm, yarn support with automatic dependency resolution
+- **Build Tools**: Vite, Webpack, and other modern build systems
+- **Testing**: Jest, Vitest integration for automated testing
+- **Code Quality**: ESLint, Prettier, TypeScript compiler integration
+
+**User Story**: *"As a DevOps engineer, I want each generated app to run in isolation with proper resource controls, so the system can scale safely to multiple concurrent users."*
+
+### 2.7 Browser Automation and Testing
+
+#### 🌐 Automated Quality Assurance
+- **Playwright Integration**: Automated browser testing
+- **Screenshot Capture**: Visual validation of generated apps
+- **Accessibility Testing**: Automated WCAG compliance checking
+- **Performance Monitoring**: Page load times and performance metrics
+- **Cross-Browser Testing**: Validation across different browsers
+
+#### 🎯 Interactive Testing
+- **Manual Testing Support**: Click, type, scroll automation
+- **Error Detection**: Automatic console error monitoring
+- **Visual Regression**: Screenshot-based change detection
+- **User Journey Testing**: End-to-end workflow validation
+
+**User Story**: *"As a QA engineer, I want the system to automatically test generated applications for accessibility, performance, and functionality before presenting them to users."*
+
+### 2.8 Error Handling and Recovery
+
+#### 🔄 Intelligent Error Recovery
+- **Build Error Detection**: Automatic identification of compilation errors
+- **Self-Healing Code**: System automatically fixes common issues
+- **Retry Logic**: Up to 3 retry attempts with exponential backoff
+- **Context Preservation**: Error states don't lose conversation progress
+
+#### 📝 Detailed Error Reporting
+- **User-Friendly Messages**: Clear explanations of what went wrong
+- **Technical Details**: Detailed logs for debugging
+- **Recovery Suggestions**: Actionable steps to resolve issues
+- **Graceful Degradation**: System continues working even with partial failures
+
+**User Story**: *"As a non-technical user, I want the system to handle errors gracefully and either fix them automatically or explain clearly what went wrong and how to proceed."*
+
+### 2.9 Scalability and Performance
+
+#### ⚡ High-Performance Architecture
+- **Stateless Server**: Horizontal scaling capability
+- **Efficient WebSockets**: Minimal overhead real-time communication
+- **Container Pooling**: Optimized resource utilization
+- **Async Processing**: Non-blocking operations for better responsiveness
+
+#### 🌍 Cloud-Ready Deployment
+- **Azure Integration**: Production deployment on Azure Container Instances
+- **Auto-Scaling**: Dynamic resource allocation based on demand
+- **Global Distribution**: Content delivery network support
+- **Monitoring**: Comprehensive observability and logging
+
+**User Story**: *"As a platform administrator, I want the system to handle hundreds of concurrent users generating apps simultaneously without performance degradation."*
+
+### 2.10 Security and Compliance
+
+#### 🔒 Security Features
+- **Container Sandboxing**: Complete isolation between user sessions
+- **Resource Limits**: Prevention of resource exhaustion attacks
+- **Input Sanitization**: Protection against code injection
+- **Network Isolation**: Controlled access to external resources
+
+#### 📋 Data Privacy
+- **Permanent App Storage**: Generated apps are permanently stored on Azure Static Web Apps for user access
+- **Session Isolation**: User data cannot leak between sessions during generation
+- **Configurable Retention**: Flexible data retention policies for conversation history
+- **GDPR Compliance**: Privacy-by-design architecture with user data control
+- **App Ownership**: Each app is tied to its conversation ID and accessible only via unique URL
+
+**User Story**: *"As a compliance officer, I want assurance that user data is handled securely and that the system meets enterprise security requirements."*
+
+### 2.11 Future Improvements and Roadmap
+
+#### 🔐 User Authentication and Management (Planned)
+- **Azure Entra ID Integration**: Seamless authentication using [Azure App Service External ID](https://devblogs.microsoft.com/identity/app-service-external-id/)
+- **User Dashboard**: Personal dashboard showing all generated applications
+- **App Management**: Edit, delete, or archive previously generated apps
+- **Conversation Restore**: Resume any previous conversation from user's app history
+- **Team Collaboration**: Share apps and conversations with team members
+- **Usage Analytics**: Track app performance and user engagement
+
+#### 📱 Enhanced App Features (Planned)
+- **Progressive Web Apps**: PWA support for mobile app-like experience
+- **Offline Functionality**: Client-side caching for offline usage
+- **Advanced Integrations**: Pre-built connectors for popular services (Salesforce, HubSpot, etc.)
+- **Custom Themes**: User-defined branding and styling options
+- **A/B Testing**: Built-in experimentation framework
+
+#### 🚀 Platform Enhancements (Planned)
+- **Computer Use Agent**: AI agent that can interact with generated apps like a human user
+- **Version Control**: Git-like versioning for app iterations
+- **Template Library**: Save and reuse common app patterns
+- **API Documentation**: Auto-generated API docs for app integrations
+- **Performance Optimization**: Advanced bundling and CDN optimization
+
+**User Story**: *"As a returning user, I want to log in and see all my previously generated apps, continue editing them, and share them with my team members with proper access controls."*
+
+---
+
+## 3. High-Level Architecture
 
 1. **Client** opens a WebSocket to `/agent?conversationId=<id>`.
 2. **Server** handles each message statelessly: loads context (from client or Blob), selects the agent pipeline (initial or modification), runs agents, streams AG‑UI events back, and asynchronously persists the updated snapshot to Azure Blob Storage.
 3. **Agents** (Clarification, Requirements, Wireframe, Coder, Modification) run in sequence on initial requests; follow‑ups bypass the first two agents.
-4. **Final app** is built in a temporary directory, tested with Playwright, then served locally; the client receives a `RENDER_URL` event for `<iframe>` embedding.
+4. **Final app** is built in isolated Docker containers, tested with Playwright, then automatically deployed to Azure Static Web Apps with a permanent URL; the client receives a `RENDER_URL` event for `<iframe>` embedding and permanent access.
 
 ---
 
-## 3. Transport Protocol
+## 4. Transport Protocol
 
 - **Protocol**: AG‑UI over **WebSocket** (AG-UI is transport agnostic - supports WebSocket, SSE, HTTP, etc.).
 - **Session ID**: `conversationId`, generated on the first request and maintained throughout the conversation.
@@ -70,7 +366,7 @@ This document unifies the **technical architecture** and the **step-by-step exec
 
 ---
 
-## 4. Agent Pipeline
+## 5. Agent Pipeline
 
 ## 5. Agent Pipeline
 
@@ -90,9 +386,9 @@ This document unifies the **technical architecture** and the **step-by-step exec
 
 ---
 
-## 5. Detailed Technical Design
+## 6. Detailed Technical Design
 
-### 5.1 Shared Types & Utilities
+### 6.1 Shared Types & Utilities
 
 - **Package**: `libs/shared`
 - **Types** (`types.ts`):
@@ -293,7 +589,7 @@ This document unifies the **technical architecture** and the **step-by-step exec
 - **Helpers**: `generateUUID()`, `getTimestamp()`, Blob snapshot helpers.
 - **Configuration**: `tsconfig.json` path mappings for shared package.
 
-### 5.2 Server Components
+### 6.2 Server Components
 
 - **Frameworks**: Express.js, WebSocket (`ws`), AG‑UI SDK, LangChain/LangGraph.
 - **Structure** (`apps/server/src`):
@@ -364,7 +660,7 @@ This document unifies the **technical architecture** and the **step-by-step exec
   }
   ```
 
-### 5.3 Client Components
+### 6.3 Client Components
 
 - **Frameworks**: React, TypeScript, Tailwind CSS, Shadcn UI, XState, AG‑UI SDK, `ws`.
 - **Structure** (`apps/client/src`):
@@ -420,7 +716,7 @@ This document unifies the **technical architecture** and the **step-by-step exec
   }
   ```
 
-### 5.4 Orchestration with LangGraph
+### 6.4 Orchestration with LangGraph
 
 ```ts
 import { Graph, Node } from 'langgraph';
@@ -479,181 +775,182 @@ export default function selectPipeline(context) {
 }
 ```
 
-### 5.5 Container & Browser Tools
+### 6.5 Container & Browser Tools
 
-- **App Container Tool** (`tools/appContainer.ts`): Provides a Linux-like terminal environment for generated applications:
+- **Docker Container System** (`tools/appContainer.ts`): Provides isolated Docker containers for generated applications with true Linux environments:
   ```ts
   export class AppContainer {
-    private workDir: string;
-    private processes: Map<string, ChildProcess> = new Map();
-    private currentDir: string = '/app';  // Virtual current directory
-    private fileSystem: Map<string, FileNode> = new Map();
+    private runtime: ContainerRuntime;
+    private containerId?: string;
     
-    constructor(conversationId: string) {
-      // Create isolated workspace for this conversation
-      this.workDir = path.join(os.tmpdir(), 'app-builder', conversationId);
-      this.initializeFileSystem();
+    constructor(private conversationId: string) {
+      this.runtime = ContainerRuntimeFactory.create();
     }
     
-    // Main terminal interface - executes bash commands like a real Linux terminal
-    async executeCommand(command: string): Promise<CommandResult> {
-      // Parse and execute bash commands
-      const parsed = this.parseCommand(command);
-      
-      switch (parsed.command) {
-        case 'ls':
-          return this.ls(parsed.args, parsed.flags);
-        case 'cd':
-          return this.cd(parsed.args[0]);
-        case 'pwd':
-          return this.pwd();
-        case 'cat':
-          return this.cat(parsed.args);
-        case 'echo':
-          return this.echo(parsed.args, parsed.redirect);
-        case 'mkdir':
-          return this.mkdir(parsed.args, parsed.flags);
-        case 'rm':
-          return this.rm(parsed.args, parsed.flags);
-        case 'cp':
-          return this.cp(parsed.args[0], parsed.args[1], parsed.flags);
-        case 'mv':
-          return this.mv(parsed.args[0], parsed.args[1]);
-        case 'touch':
-          return this.touch(parsed.args);
-        case 'sed':
-          return this.sed(parsed.args, parsed.flags);
-        case 'grep':
-          return this.grep(parsed.pattern, parsed.files, parsed.flags);
-        case 'npm':
-          return this.npm(parsed.args);
-        case 'node':
-          return this.node(parsed.args);
-        case 'npx':
-          return this.npx(parsed.args);
-        default:
-          // Try to execute as a system command
-          return this.execSystemCommand(command);
-      }
-    }
-    
-    // Bash-like command implementations
-    private async ls(args: string[], flags: string[]): Promise<CommandResult> {
-      const path = this.resolvePath(args[0] || '.');
-      const files = await fs.readdir(this.toRealPath(path));
-      
-      if (flags.includes('l')) {
-        // Long format with permissions, size, date
-        const details = await Promise.all(files.map(async (file) => {
-          const stats = await fs.stat(this.toRealPath(path + '/' + file));
-          return this.formatLsLine(file, stats);
-        }));
-        return { stdout: details.join('\n'), stderr: '', exitCode: 0 };
-      }
-      
-      return { stdout: files.join('  '), stderr: '', exitCode: 0 };
-    }
-    
-    private async cat(files: string[]): Promise<CommandResult> {
-      try {
-        const contents = await Promise.all(
-          files.map(file => fs.readFile(this.toRealPath(this.resolvePath(file)), 'utf-8'))
-        );
-        return { stdout: contents.join('\n'), stderr: '', exitCode: 0 };
-      } catch (error) {
-        return { stdout: '', stderr: `cat: ${error.message}`, exitCode: 1 };
-      }
-    }
-    
-    private async sed(args: string[], flags: string[]): Promise<CommandResult> {
-      // Support common sed patterns like s/old/new/g
-      const inPlace = flags.includes('i');
-      const pattern = args[0];
-      const files = args.slice(1);
-      
-      // Parse sed pattern (e.g., s/search/replace/g)
-      const match = pattern.match(/^s\/(.+?)\/(.+?)\/(g?)$/);
-      if (!match) {
-        return { stdout: '', stderr: 'sed: invalid command', exitCode: 1 };
-      }
-      
-      const [, search, replace, global] = match;
-      const regex = new RegExp(search, global ? 'g' : '');
-      
-      for (const file of files) {
-        const realPath = this.toRealPath(this.resolvePath(file));
-        const content = await fs.readFile(realPath, 'utf-8');
-        const modified = content.replace(regex, replace);
-        
-        if (inPlace) {
-          await fs.writeFile(realPath, modified);
-        } else {
-          return { stdout: modified, stderr: '', exitCode: 0 };
-        }
-      }
-      
-      return { stdout: '', stderr: '', exitCode: 0 };
-    }
-    
-    private async npm(args: string[]): Promise<CommandResult> {
-      const subcommand = args[0];
-      const realPath = this.toRealPath(this.currentDir);
-      
-      // Execute npm command in the real directory
-      return new Promise((resolve) => {
-        const npm = spawn('npm', args, { 
-          cwd: realPath,
-          shell: true 
-        });
-        
-        let stdout = '';
-        let stderr = '';
-        
-        npm.stdout.on('data', (data) => {
-          stdout += data.toString();
-        });
-        
-        npm.stderr.on('data', (data) => {
-          stderr += data.toString();
-        });
-        
-        npm.on('close', (code) => {
-          resolve({ stdout, stderr, exitCode: code || 0 });
-        });
-        
-        // Store process for potential termination
-        if (subcommand === 'run' && args[1] === 'dev') {
-          this.processes.set('dev-server', npm);
-        }
+    async initialize(): Promise<void> {
+      // Create isolated Docker container for this conversation
+      this.containerId = await this.runtime.createContainer({
+        conversationId: this.conversationId,
+        image: 'app-builder-base:latest',
+        memory: 512 * 1024 * 1024, // 512MB
+        cpu: 512 // 50% CPU
       });
+
+      // Initialize with boilerplate React files
+      await this.runtime.uploadFiles(this.containerId, [
+        { path: '/app/src/App.tsx', content: this.getBoilerplateApp() },
+        { path: '/app/src/main.tsx', content: this.getBoilerplateMain() },
+        { path: '/app/package.json', content: this.getBasePackageJson() },
+        { path: '/app/index.html', content: this.getBaseIndexHtml() }
+      ]);
     }
     
-    // Path resolution (handle relative and absolute paths)
-    private resolvePath(path: string): string {
-      if (path.startsWith('/')) {
-        return path;
-      }
-      if (path === '.') {
-        return this.currentDir;
-      }
-      if (path === '..') {
-        return this.currentDir.split('/').slice(0, -1).join('/') || '/';
-      }
-      return `${this.currentDir}/${path}`.replace(/\/+/g, '/');
+    // Main terminal interface - executes real bash commands in Docker container
+    async executeCommand(command: string): Promise<CommandResult> {
+      if (!this.containerId) throw new Error('Container not initialized');
+      return this.runtime.executeCommand(this.containerId, command);
     }
     
-    // Convert virtual path to real filesystem path
-    private toRealPath(virtualPath: string): string {
-      return path.join(this.workDir, virtualPath.slice(1)); // Remove leading /
+    async getDevServerUrl(): Promise<string> {
+      if (!this.containerId) throw new Error('Container not initialized');
+      return this.runtime.getContainerUrl(this.containerId);
     }
     
-    // Command result interface
-    export interface CommandResult {
-      stdout: string;
-      stderr: string;
-      exitCode: number;
+    async cleanup(): Promise<void> {
+      if (this.containerId) {
+        await this.runtime.stopContainer(this.containerId);
+      }
     }
   }
+  
+  // Container Runtime Abstraction
+  export interface ContainerRuntime {
+    createContainer(config: ContainerConfig): Promise<string>;
+    executeCommand(containerId: string, command: string): Promise<CommandResult>;
+    getContainerUrl(containerId: string): Promise<string>;
+    stopContainer(containerId: string): Promise<void>;
+    uploadFiles(containerId: string, files: FileUpload[]): Promise<void>;
+    downloadFiles(containerId: string, paths: string[]): Promise<FileDownload[]>;
+  }
+  
+  export class ContainerRuntimeFactory {
+    static create(): ContainerRuntime {
+      const runtime = process.env.CONTAINER_RUNTIME || 'docker';
+      
+      switch (runtime) {
+        case 'docker':
+          return new DockerContainerManager();
+        case 'azure':
+          return new AzureContainerManager();
+        default:
+          throw new Error(`Unknown container runtime: ${runtime}`);
+      }
+    }
+  }
+  ```
+
+- **Docker Container Manager** (`services/DockerContainerManager.ts`): Local Docker container management using Docker API:
+  ```ts
+  export class DockerContainerManager implements ContainerRuntime {
+    private docker: Docker;
+    private containers: Map<string, Docker.Container> = new Map();
+    
+    constructor() {
+      this.docker = new Docker({
+        socketPath: process.env.DOCKER_HOST || '/var/run/docker.sock'
+      });
+    }
+
+    async createContainer(config: ContainerConfig): Promise<string> {
+      const container = await this.docker.createContainer({
+        Image: config.image || 'app-builder-base:latest',
+        name: `app-builder-${config.conversationId}`,
+        HostConfig: {
+          Memory: config.memory || 512 * 1024 * 1024,
+          CpuShares: config.cpu || 512,
+          AutoRemove: false,
+          NetworkMode: 'bridge',
+          PortBindings: {
+            '3001/tcp': [{ HostPort: '0' }] // Dynamic port assignment
+          },
+          // Security settings
+          ReadonlyRootfs: false,
+          CapDrop: ['ALL'],
+          CapAdd: ['CHOWN', 'SETUID', 'SETGID'],
+          SecurityOpt: ['no-new-privileges']
+        },
+        Env: [
+          `CONVERSATION_ID=${config.conversationId}`,
+          'NODE_ENV=development'
+        ],
+        WorkingDir: '/app'
+      });
+
+      await container.start();
+      this.containers.set(config.conversationId, container);
+      return container.id;
+    }
+
+    async executeCommand(conversationId: string, command: string): Promise<CommandResult> {
+      const container = this.containers.get(conversationId);
+      if (!container) throw new Error('Container not found');
+
+      const exec = await container.exec({
+        Cmd: ['bash', '-c', command],
+        AttachStdout: true,
+        AttachStderr: true,
+        WorkingDir: '/app'
+      });
+
+      const stream = await exec.start({ Detach: false });
+      return this.parseExecStream(stream);
+    }
+
+    async getContainerUrl(conversationId: string): Promise<string> {
+      const container = this.containers.get(conversationId);
+      if (!container) throw new Error('Container not found');
+      
+      const info = await container.inspect();
+      const port = info.NetworkSettings?.Ports?.['3001/tcp']?.[0]?.HostPort;
+      return `http://localhost:${port}`;
+    }
+
+    async stopContainer(conversationId: string): Promise<void> {
+      const container = this.containers.get(conversationId);
+      if (container) {
+        await container.stop();
+        await container.remove();
+        this.containers.delete(conversationId);
+      }
+    }
+  }
+  ```
+
+- **Base Docker Image**: Pre-built React development environment (`docker/base/Dockerfile`):
+  ```dockerfile
+  FROM node:18-alpine
+
+  # Install necessary tools
+  RUN apk add --no-cache git bash curl python3 make g++ && rm -rf /var/cache/apk/*
+
+  # Create app directory
+  WORKDIR /app
+
+  # Install global npm packages
+  RUN npm install -g vite typescript @types/node @types/react @types/react-dom
+
+  # Copy base package.json and install dependencies
+  COPY package.base.json ./package.json
+  RUN npm install
+
+  # Copy base React app structure
+  COPY ./base-app ./
+
+  # Expose port for dev server
+  EXPOSE 3001
+
+  # Default command
+  CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
   ```
 
 - **Browser Automation Tool** (`tools/browserAutomation.ts`): Advanced browser control with future Computer Use Agent support:
@@ -761,15 +1058,18 @@ export default function selectPipeline(context) {
   }
   ```
 
-- **Integration with Coding Agent**: The coding agent uses bash commands naturally through tool calls:
+- **Integration with Coding Agent**: The coding agent uses Docker containers naturally through tool calls:
   ```ts
-  // Enhanced coding agent prompt
+  // Enhanced coding agent prompt with Docker awareness
   export const codingAgentConfig: AgentConfig = {
     name: 'coding',
     prompt: `You are a senior full-stack developer that builds web applications.
     
-    You have access to a Linux terminal through the appContainer.executeCommand tool.
-    You can execute ANY bash command just like in a real terminal.
+    You have access to a real Docker container through the appContainer.executeCommand tool.
+    The container runs Ubuntu Linux with Node.js 18, npm, and all necessary development tools.
+    
+    The container starts with a base React+TypeScript+Vite setup in /app directory.
+    You can execute ANY bash command just like in a real Linux environment.
     
     Common commands you should use:
     - pwd: Check current directory
@@ -778,25 +1078,23 @@ export default function selectPipeline(context) {
     - echo "[content]" > [file]: Write content to file
     - sed -i 's/old/new/g' [file]: Edit files in place
     - mkdir -p [directory]: Create directories
-    - npm install: Install dependencies
+    - npm install [package]: Install dependencies
     - npm run build: Build the application
-    - npm run dev: Start development server
+    - npm run dev: Start development server (runs on container port 3001)
     - npm test: Run tests
     
     Your workflow should be:
-    1. Check current directory with pwd
-    2. Create necessary directories with mkdir
-    3. Write all required files using echo or cat
-    4. Run npm install to install dependencies
-    5. Run npm run build to build the app
-    6. Check for errors in the output
-    7. If there are errors, read the problematic files with cat
-    8. Fix errors using sed or by rewriting files
-    9. Repeat build until successful
-    10. Run npm run dev to start the app
+    1. Check current directory and existing files with pwd and ls
+    2. Examine the base React setup with cat package.json and cat src/App.tsx
+    3. Modify existing files or create new ones as needed
+    4. Install additional dependencies if required with npm install
+    5. Run npm run build to build the app and check for errors
+    6. If there are errors, read the problematic files and fix them
+    7. Run npm run dev to start the development server
+    8. The container will provide a URL you can share with the user
     
+    The container provides true isolation and security. You have full Linux capabilities.
     Continue iterating until you have a fully working application that meets all requirements.
-    Never give up on errors - analyze them and fix them.
     `,
     tools: ['appContainer'],
     validateOutput: (output) => {
@@ -806,16 +1104,16 @@ export default function selectPipeline(context) {
   };
   ```
 
-- **Migration Path**: Easy to swap implementations while maintaining the same interface; ready for Docker containerization and Computer Use Agent integration.
+- **Migration Path**: The system supports multiple container runtimes through the `ContainerRuntime` interface. Currently supports local Docker Desktop for development and Azure Container Instances for production. Easy to add new runtimes (AWS ECS, Kubernetes, etc.) while maintaining the same interface. See `/docs/docker-migration-plan.md` for detailed migration strategy from mock containers to real Docker containers.
 
-### 5.6 Azure Infrastructure
+### 6.6 Azure Infrastructure
 
 - **Azure OpenAI**: GPT‑4 endpoint, key in `ENV`.
 - **Storage Account**: Blob containers `snapshots` (state) and `artifacts` (code bundles).
 - **Static Web Apps**: deploy client artifacts; integrate with GitHub Actions.
 - **(Optional)** Container Instances: for on‑demand isolation.
 
-### 5.7 Environment Configuration
+### 6.7 Environment Configuration
 
 Required environment variables for development and production:
 
@@ -837,6 +1135,24 @@ NODE_ENV=development
 WS_TIMEOUT=30000
 TEMP_DIR_CLEANUP_DELAY=300000
 
+# Container Runtime Configuration
+CONTAINER_RUNTIME=docker # Options: docker, azure
+DOCKER_HOST=/var/run/docker.sock
+CONTAINER_MEMORY_LIMIT=536870912 # 512MB in bytes
+CONTAINER_CPU_SHARES=512 # 50% CPU
+CONTAINER_TIMEOUT=300000 # 5 minutes
+
+# Docker Base Image
+DOCKER_BASE_IMAGE=app-builder-base:latest
+DOCKER_REGISTRY=localhost # or Azure Container Registry URL
+
+# Azure Container Instances (for production)
+AZURE_SUBSCRIPTION_ID=your_subscription_id
+AZURE_RESOURCE_GROUP=app-builder-rg
+ACR_URL=appbuilderacr.azurecr.io
+ACR_USERNAME=acr_username
+ACR_PASSWORD=acr_password
+
 # Client Configuration (Vite)
 VITE_WS_URL=ws://localhost:3000
 VITE_API_URL=http://localhost:3000
@@ -847,7 +1163,7 @@ VERBOSE_LOGGING=true
 CUSTOM_AGENT_PATH=./custom-agents
 ```
 
-### 5.8 AG-UI Pipeline Implementation Examples
+### 6.8 AG-UI Pipeline Implementation Examples
 
 **Wireframe Generation Pipeline**:
 ```ts
@@ -1031,7 +1347,7 @@ export async function generateCode(
 }
 ```
 
-### 5.9 CI/CD & Deployment
+### 6.9 CI/CD & Deployment
 
 - **Monorepo**: Turborepo or Nx pipelines.
 - **Server Workflow**: `eslint`, `tsc --noEmit`, `npm test`, `npm run build`, `docker build && push`.
@@ -1058,7 +1374,7 @@ export async function generateCode(
   }
   ```
 
-### 5.10 Security & POC Constraints
+### 6.10 Security & POC Constraints
 
 - **No Redis**: server stateless by design.
 - **Simplified Sandboxing**: Uses temp directories instead of Docker for POC; easy to upgrade to container isolation later.
@@ -1071,7 +1387,7 @@ export async function generateCode(
 - **Timeouts**: Agent execution timeout of 30 seconds, WebSocket message timeout of 5 minutes.
 - **Cleanup Strategy**: Temp directories cleaned after 5 minutes, blob snapshots retained for 30 days.
 
-### 5.11 Local Development Setup
+### 6.11 Local Development Setup
 
 Root `package.json` scripts for development:
 
@@ -1108,7 +1424,7 @@ app.use(cors({
 }));
 ```
 
-### 5.11 Testing Strategy
+### 6.11 Testing Strategy
 
 **Unit Tests**: Each agent, tool, and utility function should have unit tests.
 
@@ -1221,7 +1537,7 @@ export function createMockWebSocket(): MockWebSocket {
 
 ---
 
-## 6. Execution Plan
+## 7. Execution Plan
 
 ### ✅ Task 1: Repository & Monorepo Initialization **[COMPLETED]**
 **Objective:** Set up the current directory as a Git repository and monorepo structure to host server, client, and shared libraries with base configurations.
@@ -1336,32 +1652,33 @@ export function createMockWebSocket(): MockWebSocket {
   - ⚠️ **Note**: Tool integration framework complete, but actual tools are placeholders (see Task 8)
   - ✅ Extensible tool system architecture
 
-### ✅ Task 8: Container & Browser Tooling **[COMPLETED]**
+### ⚠️ Task 8: Container & Browser Tooling **[MIGRATING TO DOCKER]**
 
-**Status: COMPLETED** ✅
+**Status: MIGRATING TO DOCKER** ⚠️
 
-#### ✅ App Container Tool (COMPLETED)
-- ✅ Linux-like terminal environment with bash command execution (`appContainer.ts`)
-- ✅ Full filesystem simulation with virtual paths (pwd, cd, ls, cat, echo, touch, rm, cp, mv)
-- ✅ Text processing commands: sed, grep, head, tail, wc with proper bash syntax
-- ✅ Process management: npm, node, npx with real subprocess execution
-- ✅ Environment variables and working directory management
-- ✅ Error codes and stderr output matching Linux behavior
-- ✅ Long-running process support (npm run dev) with background execution
-- ✅ Command history and session persistence
-- ✅ File operations with heredoc support for writing multi-line files
-- ✅ Path resolution for relative and absolute paths
-- ✅ Container cleanup and resource management
+**Note**: Currently migrating from mock container system to real Docker containers. See `/docs/docker-migration-plan.md` for detailed migration strategy.
 
-#### ✅ Coding Agent Integration (COMPLETED)
-- ✅ Natural bash command usage in agent prompts and tool calls
-- ✅ Iterative development workflow with automatic command generation
-- ✅ File creation through echo/cat with heredoc syntax
-- ✅ Build error detection and handling through container execution
-- ✅ Container initialization per conversation ID
-- ✅ Tool integration framework in BaseAgent class
+#### ✅ Current Mock System (Legacy - Being Replaced)
+- ✅ Mock container using temp directories and Node.js child processes
+- ✅ Linux-like terminal simulation with bash command execution
+- ✅ File operations, text processing, and npm integration
+- ✅ Base64 encoding fix for file modification in containers
 
-#### ✅ Browser Automation Tool (COMPLETED)
+#### 🔄 Docker Migration In Progress
+- [ ] **Phase 1 - Local Docker Implementation**:
+  - [ ] Docker Desktop setup and base image creation
+  - [ ] DockerContainerManager implementation with Docker API
+  - [ ] Container runtime abstraction (ContainerRuntime interface)
+  - [ ] AppContainer tool migration to use real Docker containers
+  - [ ] Local testing and validation
+
+- [ ] **Phase 2 - Azure Cloud Deployment**:
+  - [ ] Azure Container Registry setup
+  - [ ] Azure Container Instances integration
+  - [ ] AzureContainerManager implementation
+  - [ ] Production deployment and monitoring
+
+#### ✅ Browser Automation Tool (Completed - No Changes Needed)
 - ✅ Playwright integration for headless/headful browser control
 - ✅ Screenshot capture with annotations
 - ✅ Interactive actions (click, type, scroll, hover)
@@ -1369,8 +1686,16 @@ export function createMockWebSocket(): MockWebSocket {
 - ✅ Error detection and console monitoring
 - ✅ Performance metrics collection
 - ✅ Accessibility checking
-- ✅ Action recording and playback
 - ✅ Foundation for Computer Use Agent integration
+
+**Migration Benefits**:
+- True process and filesystem isolation
+- Better security with container sandboxing
+- Scalability with Azure Container Instances
+- Consistent environment across local and cloud
+- Enhanced monitoring and debugging capabilities
+
+**Next Steps**: Complete Phase 1 local Docker implementation before proceeding to Azure cloud deployment.
 
 ### ✅ Task 9: Client State Machine & Rendering **[COMPLETED]**
 
@@ -1434,7 +1759,7 @@ export function createMockWebSocket(): MockWebSocket {
 
 ---
 
-## 7. Appendices
+## 8. Appendices
 
 ### Appendix A: Example AG‑UI Event Sequence
 
