@@ -12,6 +12,7 @@ export function useAgUi() {
     const [error, setError] = useState<string | null>(null);
     const [conversationId, setConversationId] = useState<string | null>(null);
     const [allowContinue, setAllowContinue] = useState<boolean>(false);
+    const [agentState, setAgentState] = useState<Record<string, any>>({});
 
     const clientRef = useRef<AgUiClient | null>(null);
 
@@ -61,6 +62,10 @@ export function useAgUi() {
                             // Extract allowContinue flag from state snapshot
                             if ('allowContinue' in event) {
                                 setAllowContinue(event.allowContinue || false);
+                            }
+                            // Extract and store the agent state
+                            if ('state' in event) {
+                                setAgentState(event.state || {});
                             }
                             break;
                         case EventType.ERROR:
@@ -112,6 +117,7 @@ export function useAgUi() {
         setEvents([]);
         setError(null);
         setAllowContinue(false); // Reset allowContinue for new conversation
+        setAgentState({}); // Reset agent state for new conversation
 
         if (clientRef.current) {
             // Disconnect and create new client with new conversation ID
@@ -163,6 +169,10 @@ export function useAgUi() {
                                 if ('allowContinue' in event) {
                                     setAllowContinue(event.allowContinue || false);
                                 }
+                                // Extract and store the agent state
+                                if ('state' in event) {
+                                    setAgentState(event.state || {});
+                                }
                                 break;
                             case EventType.ERROR:
                                 setState('error');
@@ -204,7 +214,8 @@ export function useAgUi() {
         context: {
             events,
             error,
-            conversationId
+            conversationId,
+            state: agentState
         },
         clearError
     };

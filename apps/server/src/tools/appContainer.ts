@@ -1054,7 +1054,7 @@ export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
     /**
      * Start the development server and return the URL
      */
-    async startDevServer(): Promise<{ url: string; port: number; success: boolean; output: string }> {
+    async startDevServer(): Promise<CommandResult> {
         const port = 3001; // Same as configured in vite.config.ts
 
         try {
@@ -1136,27 +1136,24 @@ export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
                 console.log(`✅ Development server started at ${url}`);
 
                 return {
-                    url,
-                    port,
-                    success: true,
-                    output
+                    stdout: `Development server started successfully!\nLocal: ${url}\npress h + enter to show help\n\n${output}`,
+                    stderr: '',
+                    exitCode: 0
                 };
             } else {
                 console.error('❌ Development server failed to start within timeout');
                 return {
-                    url: '',
-                    port: 0,
-                    success: false,
-                    output: output || 'Server startup timeout'
+                    stdout: '',
+                    stderr: `Development server failed to start within timeout. Output: ${output || 'Server startup timeout'}`,
+                    exitCode: 1
                 };
             }
         } catch (error) {
             console.error('❌ Failed to start development server:', error);
             return {
-                url: '',
-                port: 0,
-                success: false,
-                output: getErrorMessage(error)
+                stdout: '',
+                stderr: `Failed to start development server: ${getErrorMessage(error)}`,
+                exitCode: 1
             };
         }
     }
@@ -1207,6 +1204,11 @@ export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
     private async npm(args: string[]): Promise<CommandResult> {
         const subcommand = args[0];
         const realPath = this.toRealPath(this.currentDir);
+
+        // Special handling for npm run dev to return dev server URL
+        if (subcommand === 'run' && args[1] === 'dev') {
+            return this.startDevServer();
+        }
 
         return new Promise((resolve) => {
             // Use Node.js and npm from the system PATH

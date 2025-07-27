@@ -24,6 +24,10 @@ yarn-error.log*
 # Temporary directories
 /tmp/app-*
 
+# AI App Builder debug outputs
+/apps/server/ai-app-builder-debug/
+**/ai-app-builder-debug/
+
 # IDE
 .vscode/
 .idea/

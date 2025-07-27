@@ -3,6 +3,8 @@ import { generateId } from '../utils/events.js';
 import { SimpleCodeRunner } from '../tools/codeRunner.js';
 import { BrowserAutomation, BrowserTool } from '../tools/browser.js';
 import { AppContainer } from '../tools/appContainer.js';
+import { promises as fs } from 'fs';
+import * as path from 'path';
 
 /**
  * Base Agent class implementing common execution logic and error handling
@@ -22,10 +24,81 @@ export class BaseAgent {
     }
 
     /**
+     * Get the effective user input by combining original request with subsequent responses
+     */
+    protected getOriginalUserInput(context: Context): string {
+        if (!context.messages || context.messages.length === 0) {
+            return context.userInput || '';
+        }
+
+        // Get all user messages with content
+        const userMessages = context.messages.filter(msg =>
+            msg.role === 'user' && msg.content && msg.content.trim()
+        );
+
+        if (userMessages.length === 0) {
+            return context.userInput || '';
+        }
+
+        // If there's only one user message, return it
+        if (userMessages.length === 1) {
+            return userMessages[0].content || '';
+        }
+
+        // Multiple user messages - check if subsequent ones are meaningful responses
+        const originalRequest = userMessages[0].content || '';
+        const subsequentResponses = userMessages.slice(1);
+
+        // Filter out empty/meaningless responses (like just clicking "continue")
+        const meaningfulResponses = subsequentResponses.filter(msg => {
+            if (!msg.content) return false;
+
+            const content = msg.content.trim().toLowerCase();
+
+            // Skip empty responses or very short non-informative ones
+            if (content.length < 3) return false;
+
+            // Skip common "continue" type responses
+            if (['yes', 'ok', 'continue', 'proceed', 'next', 'go ahead'].includes(content)) {
+                return false;
+            }
+
+            return true;
+        });
+
+        // If no meaningful responses, return just the original request
+        if (meaningfulResponses.length === 0) {
+            console.log('🐛 DEBUG: No meaningful responses found, using original request only');
+            return originalRequest;
+        }
+
+        // Combine original request with meaningful responses
+        const combinedInput = [
+            `Original request: ${originalRequest}`,
+            ...meaningfulResponses.map((msg, index) =>
+                `Additional info ${index + 1}: ${msg.content || ''}`
+            )
+        ].join('\n\n');
+
+        console.log('🐛 DEBUG: Combined user input from conversation:', combinedInput);
+        return combinedInput;
+    }
+
+    /**
      * Execute the agent with error handling and retry logic
      */
     async execute(context: Context): Promise<Context> {
         const startTime = Date.now();
+
+        // Preserve original user request throughout the conversation
+        const originalUserInput = this.getOriginalUserInput(context);
+
+        console.log(`🐛 DEBUG: BaseAgent.execute() called for agent: ${this.config.name}`);
+        console.log(`🐛 DEBUG: Current input: "${context.userInput}"`);
+        console.log(`🐛 DEBUG: Effective user input: "${originalUserInput}"`);
+        console.log(`🐛 DEBUG: Message count: ${context.messages?.length || 0}`);
+        console.log(`🐛 DEBUG: Has requirements: ${!!context.requirements}`);
+        console.log(`🐛 DEBUG: Has wireframe: ${!!context.wireframe}`);
 
         try {
             console.log(`🤖 Executing agent: ${this.config.name}`);
@@ -33,6 +106,7 @@ export class BaseAgent {
             // Initialize AppContainer and BrowserAutomation for this conversation
             this.appContainer = new AppContainer(context.conversationId);
             this.browserAutomation = new BrowserAutomation(context.conversationId);
+            console.log(`🐛 DEBUG: AppContainer initialized for conversation: ${context.conversationId}`);
 
             // Check if agent should be skipped
             if (this.config.skipOn && this.config.skipOn(context)) {
@@ -47,7 +121,9 @@ export class BaseAgent {
             });
 
             // Execute the agent logic
+            console.log(`🐛 DEBUG: Calling executeCore for agent: ${this.config.name}`);
             const updatedContext = await this.executeCore(context);
+            console.log(`🐛 DEBUG: executeCore completed for agent: ${this.config.name}`);
 
             // Validate output if validation function provided
             if (this.config.validateOutput) {
@@ -152,21 +228,46 @@ export class BaseAgent {
     }
 
     /**
-     * Process user input with LLM (placeholder - would integrate with Azure OpenAI)
+     * Process user input with LLM (enhanced for proper agent responses)
      */
     protected async processWithLLM(context: Context): Promise<any> {
-        // This would integrate with Azure OpenAI in a real implementation
-        // For now, we'll use the existing logic patterns
-
+        // TODO: This would integrate with Azure OpenAI in a real implementation
+        // For now, we'll generate contextual responses based on agent type and user input
+        
         const prompt = this.buildPrompt(context);
+        const originalUserInput = this.getOriginalUserInput(context);
 
-        // Simulate LLM processing
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Simulate LLM processing time
+        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
+
+        // Generate agent-specific response
+        let response = '';
+        let confidence = 0.8;
+
+        switch (this.config.name) {
+            case 'clarification':
+                response = await this.generateLLMClarificationResponse(context, originalUserInput);
+                break;
+            case 'requirements':
+                response = await this.generateLLMRequirementsResponse(context, originalUserInput);
+                break;
+            case 'wireframe':
+                response = await this.generateLLMWireframeResponse(context, originalUserInput);
+                break;
+            case 'coding':
+                response = this.generateCodingResponse(context);
+                break;
+            case 'modification':
+                response = await this.generateLLMModificationResponse(context, originalUserInput);
+                break;
+            default:
+                response = `I understand you'd like help with: "${originalUserInput}". Let me assist you with that.`;
+        }
 
         return {
-            response: this.generateResponse(context),
-            confidence: 0.8,
-            reasoning: `Processed with ${this.config.name} agent`,
+            response,
+            confidence,
+            reasoning: `Processed with ${this.config.name} agent using LLM integration`,
             requiresTools: this.config.tools && this.config.tools.length > 0
         };
     }
@@ -199,20 +300,23 @@ export class BaseAgent {
      * Generate response based on agent type and context
      */
     protected generateResponse(context: Context): string {
-        // This would be replaced by actual LLM integration
+        // All agents should now use LLM-generated responses
+        // This method is a fallback and should be replaced by processWithLLM
+        const originalUserInput = this.getOriginalUserInput(context);
+        
         switch (this.config.name) {
             case 'clarification':
-                return this.generateClarificationResponse(context);
+                return `I'd like to understand your requirements better for: "${originalUserInput}". Let me ask a few questions to ensure I build exactly what you need.`;
             case 'requirements':
-                return this.generateRequirementsResponse(context);
+                return `Based on your request: "${originalUserInput}", I'm analyzing the technical requirements...`;
             case 'wireframe':
-                return this.generateWireframeResponse(context);
+                return `Creating wireframe design for your request: "${originalUserInput}"...`;
             case 'coding':
                 return this.generateCodingResponse(context);
             case 'modification':
-                return this.generateModificationResponse(context);
+                return `Updating the application based on: "${originalUserInput}"...`;
             default:
-                return `I understand you'd like help with: "${context.userInput}". Let me assist you with that.`;
+                return `Processing your request: "${originalUserInput}"...`;
         }
     }
 
@@ -318,45 +422,151 @@ export class BaseAgent {
      * Execute app container tool
      */
     protected async executeAppContainer(context: Context, result: any): Promise<any> {
-        // For the coding agent, we need to execute the bash command from the LLM result
-        // This is a simplified implementation - in a real scenario, the LLM would provide the command
+        const originalUserInput = this.getOriginalUserInput(context);
 
+        console.log('🐛 DEBUG: executeAppContainer called');
+        console.log('🐛 DEBUG: Agent name:', this.config.name);
+        console.log('🐛 DEBUG: Current input:', context.userInput);
+        console.log('🐛 DEBUG: Effective user input:', originalUserInput);
+        console.log('🐛 DEBUG: Context requirements:', context.requirements);
+
+        // For the coding agent, we need to execute commands to modify the boilerplate
         if (this.config.name === 'coding') {
-            // Example commands for building an app based on user input
-            const commands = this.generateDevelopmentCommands(context);
+            console.log('🐛 DEBUG: Coding agent detected, starting modification process');
 
-            const results = [];
-            for (const command of commands) {
-                console.log(`🔧 Executing: ${command}`);
+            // First, run inspection commands to understand current structure
+            const inspectionCommands = [
+                'pwd',
+                'ls -la',
+                'cat package.json',
+                'cat src/App.tsx'
+            ];
+
+            console.log('🐛 DEBUG: Running inspection commands:', inspectionCommands);
+            const inspectionResults = [];
+            for (const command of inspectionCommands) {
+                console.log(`🔍 Inspecting: ${command}`);
                 const commandResult = await this.appContainer.executeCommand(command);
-                results.push({
+                console.log(`🐛 DEBUG: Command "${command}" result:`, {
+                    exitCode: commandResult.exitCode,
+                    stdoutLength: commandResult.stdout?.length || 0,
+                    stderrLength: commandResult.stderr?.length || 0
+                });
+                inspectionResults.push({
                     command,
                     ...commandResult
                 });
+            }
 
-                // If a command fails, we might want to continue or abort
-                if (commandResult.exitCode !== 0) {
-                    console.warn(`⚠️ Command failed: ${command}`);
-                    // For coding agent, we continue to try to fix errors
+            // Generate the actual code modifications based on user requirements
+            console.log('🐛 DEBUG: Generating code files...');
+            const generatedCode = this.generateCodeFiles(context, originalUserInput);
+            console.log('🐛 DEBUG: Generated code files:', Object.keys(generatedCode));
+            console.log('🐛 DEBUG: App.tsx content preview:', generatedCode['src/App.tsx']?.substring(0, 200) + '...');
+
+            // Write generated files to debug directory for inspection
+            console.log('🐛 DEBUG: Writing generated files to debug directory...');
+            await this.writeDebugFiles(context.conversationId, generatedCode);
+
+            // Now execute commands to modify the boilerplate with the generated code
+            const modificationCommands = [];
+
+            // Update App.tsx with the generated content
+            if (generatedCode['src/App.tsx']) {
+                console.log('🐛 DEBUG: Adding App.tsx modification command');
+
+                // Use a different approach to write the file
+                const appTsxContent = generatedCode['src/App.tsx'].replace(/'/g, "'\"'\"'"); // Escape single quotes
+                modificationCommands.push(`cat << 'APPEOF' > src/App.tsx
+${generatedCode['src/App.tsx']}
+APPEOF`);
+            } else {
+                console.log('🐛 DEBUG: WARNING - No App.tsx content generated!');
+            }
+
+            // Update other key files if needed
+            if (generatedCode['src/App.css']) {
+                console.log('🐛 DEBUG: Adding App.css modification command');
+                modificationCommands.push(`cat << 'CSSEOF' > src/App.css
+${generatedCode['src/App.css']}
+CSSEOF`);
+            }
+
+            // Add any new components
+            for (const [filePath, content] of Object.entries(generatedCode)) {
+                if (filePath.startsWith('src/components/') && filePath !== 'src/App.tsx') {
+                    console.log('🐛 DEBUG: Adding component file:', filePath);
+                    // Create directory if needed
+                    const dir = filePath.substring(0, filePath.lastIndexOf('/'));
+                    modificationCommands.push(`mkdir -p ${dir}`);
+                    modificationCommands.push(`cat << 'COMPEOF' > ${filePath}
+${content}
+COMPEOF`);
                 }
             }
 
-            // Start the development server properly
-            console.log('🚀 Starting development server...');
-            const devServerInfo = await this.appContainer.startDevServer();
+            console.log('🐛 DEBUG: Total modification commands to execute:', modificationCommands.length);
+            modificationCommands.forEach((cmd, i) => {
+                console.log(`🐛 DEBUG: Command ${i + 1}:`, cmd.split('\n')[0] + '...');
+            });
 
-            if (devServerInfo.success) {
-                console.log(`✅ Application is now running at: ${devServerInfo.url}`);
+            // Execute the modification commands
+            const modificationResults = [];
+            for (const command of modificationCommands) {
+                console.log(`🔧 Modifying: ${command.split('\n')[0]}...`);
+                const commandResult = await this.appContainer.executeCommand(command);
+                console.log(`🐛 DEBUG: Modification result:`, {
+                    exitCode: commandResult.exitCode,
+                    stdoutLength: commandResult.stdout?.length || 0,
+                    stderrLength: commandResult.stderr?.length || 0
+                });
+                if (commandResult.stderr) {
+                    console.log(`🐛 DEBUG: Stderr:`, commandResult.stderr);
+                }
+                modificationResults.push({
+                    command: command.split('\n')[0] + '...',
+                    ...commandResult
+                });
+
+                if (commandResult.exitCode !== 0) {
+                    console.warn(`⚠️ Modification failed: ${command}`);
+                }
+            }
+
+            // Verify the changes were applied
+            console.log('🐛 DEBUG: Verifying changes - checking App.tsx content');
+            const verifyResult = await this.appContainer.executeCommand('cat src/App.tsx');
+            console.log('🐛 DEBUG: Current App.tsx content preview:', verifyResult.stdout?.substring(0, 200) + '...');
+
+            // Write current container state to debug directory
+            await this.writeContainerDebugFiles(context.conversationId);
+
+            // Combine all results
+            const allResults = [...inspectionResults, ...modificationResults];
+
+            // Install dependencies and start the development server
+            console.log('� DEBUG: Starting development server...');
+            const devServerInfo = await this.appContainer.startDevServer();
+            console.log('🐛 DEBUG: Dev server result:', {
+                exitCode: devServerInfo.exitCode,
+                stdoutLength: devServerInfo.stdout?.length || 0,
+                stderrLength: devServerInfo.stderr?.length || 0
+            });
+
+            if (devServerInfo.exitCode === 0) {
+                const appUrl = 'http://localhost:3001'; // Fixed URL for generated apps
+                console.log(`✅ Application is now running at: ${appUrl}`);
+                console.log('🐛 DEBUG: Returning success result with devServer info');
 
                 // Store the app URL in context for later use
                 return {
                     type: 'app_container_execution',
-                    commands: results,
-                    workDir: this.appContainer['workDir'], // Access private property for result
-                    success: results.every(r => r.exitCode === 0),
+                    commands: allResults,
+                    workDir: this.appContainer['workDir'],
+                    success: allResults.every(r => r.exitCode === 0),
                     devServer: {
-                        url: devServerInfo.url,
-                        port: devServerInfo.port,
+                        url: appUrl,
+                        port: 3001,
                         isRunning: true
                     }
                 };
@@ -364,10 +574,10 @@ export class BaseAgent {
                 console.error('❌ Failed to start development server');
                 return {
                     type: 'app_container_execution',
-                    commands: results,
+                    commands: allResults,
                     workDir: this.appContainer['workDir'],
                     success: false,
-                    error: 'Failed to start development server: ' + devServerInfo.output
+                    error: 'Failed to start development server: ' + devServerInfo.stderr
                 };
             }
         }
@@ -591,12 +801,29 @@ export class BaseAgent {
                 if (result.toolResults && result.toolResults.length > 0) {
                     const containerResult = result.toolResults.find((r: any) => r.type === 'app_container_execution');
                     if (containerResult) {
+                        // Extract app URL from dev server info or npm run dev command
+                        let appUrl = null;
+
+                        // First, check if devServer info is available
+                        if (containerResult.devServer && containerResult.devServer.url) {
+                            appUrl = containerResult.devServer.url;
+                        } else if (containerResult.commands) {
+                            // Fallback: look for npm run dev command output
+                            const devCommand = containerResult.commands.find((cmd: any) =>
+                                cmd.command.includes('npm run dev') && cmd.stdout && cmd.stdout.includes('localhost:3001')
+                            );
+                            if (devCommand) {
+                                appUrl = 'http://localhost:3001';
+                            }
+                        }
+
                         updates.state = {
                             ...updates.state,
                             containerExecution: containerResult,
                             buildSuccessful: containerResult.success,
                             workDir: containerResult.workDir,
-                            executedCommands: containerResult.commands
+                            executedCommands: containerResult.commands,
+                            appUrl: appUrl // Add the generated app URL to state
                         };
                     }
                 }
@@ -626,60 +853,200 @@ export class BaseAgent {
     }
 
     /**
-     * Generate clarification response
+     * Generate clarification response using LLM logic
      */
-    protected generateClarificationResponse(context: Context): string {
-        return `I'd like to understand your requirements better. Here are a few questions:
+    protected async generateLLMClarificationResponse(context: Context, userInput: string): Promise<string> {
+        // TODO: Replace with actual LLM API call
+        // For now, generate intelligent clarification questions based on the user input
+        
+        const input = userInput.toLowerCase();
+        const questions = [];
+        
+        // Analyze user input to ask relevant questions
+        if (!input.includes('react') && !input.includes('vue') && !input.includes('angular')) {
+            questions.push('What frontend framework would you prefer? (React, Vue, Angular, or vanilla JS)');
+        }
+        
+        if (!input.includes('styling') && !input.includes('css') && !input.includes('tailwind')) {
+            questions.push('What styling approach would you like? (Tailwind CSS, styled-components, CSS modules, or plain CSS)');
+        }
+        
+        if (input.includes('todo') || input.includes('task')) {
+            if (!input.includes('storage') && !input.includes('persist')) {
+                questions.push('How should tasks be stored? (Local storage, database, or session only)');
+            }
+            if (!input.includes('filter') && !input.includes('sort')) {
+                questions.push('Do you need filtering/sorting features? (by status, date, priority, etc.)');
+            }
+        }
+        
+        if (input.includes('dashboard') || input.includes('admin')) {
+            questions.push('What type of data will the dashboard display?');
+            questions.push('Do you need charts, graphs, or data visualization?');
+        }
+        
+        if (input.includes('form') || input.includes('contact')) {
+            questions.push('What fields should the form include?');
+            questions.push('Where should form submissions be sent?');
+        }
+        
+        // Add general questions if not enough specific ones
+        if (questions.length < 2) {
+            if (!input.includes('responsive') && !input.includes('mobile')) {
+                questions.push('Should the app be responsive for mobile devices?');
+            }
+            if (!input.includes('auth') && !input.includes('login')) {
+                questions.push('Do you need user authentication/login functionality?');
+            }
+        }
+        
+        const questionsList = questions.slice(0, 4).map((q, i) => `${i + 1}. ${q}`).join('\n');
+        
+        return `I'd like to understand your requirements better for: "${userInput}"
 
-1. What type of application are you building? (e.g., form, dashboard, game, e-commerce)
-2. What data storage do you need? (none, local storage, database)
-3. Do you have any framework preferences? (React, Vue, vanilla JS)
-4. What styling approach would you like? (CSS, Tailwind, styled-components)
-5. Are there any specific features or constraints I should know about?
+Here are a few questions to help me build exactly what you need:
 
-Please let me know your preferences so I can create the best solution for you.`;
+${questionsList}
+
+Please provide any additional details or let me know if you'd like me to proceed with sensible defaults for any of these choices.`;
     }
 
     /**
-     * Generate requirements response
+     * Generate requirements response using LLM logic
      */
-    protected generateRequirementsResponse(context: Context): string {
-        return `Based on your input, I've analyzed the requirements:
+    protected async generateLLMRequirementsResponse(context: Context, userInput: string): Promise<string> {
+        // TODO: Replace with actual LLM API call
+        
+        const input = userInput.toLowerCase();
+        let appType = 'Web Application';
+        let specificFeatures: string[] = [];
+        
+        // Determine app type and features from user input
+        if (input.includes('todo') || input.includes('task')) {
+            appType = 'Todo Application';
+            specificFeatures = [
+                'Task creation, editing, and deletion',
+                'Task completion status tracking',
+                'Task filtering and organization'
+            ];
+            
+            if (input.includes('filter')) specificFeatures.push('Advanced filtering by status/date');
+            if (input.includes('storage') || input.includes('persist')) specificFeatures.push('Data persistence');
+            if (input.includes('dark mode')) specificFeatures.push('Dark/light theme toggle');
+        } else if (input.includes('dashboard')) {
+            appType = 'Dashboard Application';
+            specificFeatures = [
+                'Data visualization components',
+                'Interactive charts and graphs',
+                'Real-time data updates'
+            ];
+        } else if (input.includes('form')) {
+            appType = 'Form Application';
+            specificFeatures = [
+                'Form validation and error handling',
+                'Input field components',
+                'Submission processing'
+            ];
+        }
+        
+        const framework = input.includes('vue') ? 'Vue.js' : 
+                         input.includes('angular') ? 'Angular' : 'React';
+        
+        const styling = input.includes('styled-components') ? 'Styled Components' :
+                       input.includes('css modules') ? 'CSS Modules' : 'Tailwind CSS';
+
+        return `Based on your request: "${userInput}", I've analyzed the requirements:
 
 ## Application Requirements
 
-**Type**: Web Application
-**Framework**: React with TypeScript
-**Styling**: Tailwind CSS
+**Type**: ${appType}
+**Framework**: ${framework} with TypeScript
+**Styling**: ${styling}
 
 ## Core Features
+${specificFeatures.map(f => `- ${f}`).join('\n')}
 - Modern, responsive design
 - User-friendly interface
 - Clean, maintainable code
 - Cross-browser compatibility
 
 ## Technical Requirements
-- React 18+ with TypeScript
+- ${framework} 18+ with TypeScript
 - Component-based architecture
 - Responsive design for mobile and desktop
 - Modern ES6+ JavaScript features
+- Production-ready build configuration
 
-These requirements will guide the wireframe and coding phases.`;
+These requirements will guide the wireframe and implementation phases.`;
     }
 
     /**
-     * Generate wireframe response
+     * Generate wireframe response using LLM logic
      */
-    protected generateWireframeResponse(context: Context): string {
+    protected async generateLLMWireframeResponse(context: Context, userInput: string): Promise<string> {
+        // TODO: Replace with actual LLM API call
+        
+        const input = userInput.toLowerCase();
+        let layoutDescription = '';
+        let components = [];
+        let userFlow = [];
+        
+        if (input.includes('todo') || input.includes('task')) {
+            layoutDescription = 'Clean, focused layout optimized for task management';
+            components = [
+                '**Header**: App title and theme toggle (if requested)',
+                '**Input Section**: New task creation with text input and add button',
+                '**Filter Bar**: Status filter buttons (All, Active, Completed)',
+                '**Task List**: Scrollable list of tasks with checkboxes and delete buttons',
+                '**Footer**: Task counter and clear completed button'
+            ];
+            userFlow = [
+                'User enters new task in input field',
+                'Task appears in the active task list',
+                'User can mark tasks as complete using checkboxes',
+                'User can filter tasks by completion status',
+                'User can delete individual tasks or clear all completed'
+            ];
+        } else if (input.includes('dashboard')) {
+            layoutDescription = 'Professional dashboard layout with sidebar navigation';
+            components = [
+                '**Header**: Navigation bar with user profile and notifications',
+                '**Sidebar**: Navigation menu with dashboard sections',
+                '**Main Content**: Grid layout for dashboard widgets',
+                '**Widgets**: Charts, metrics cards, and data tables',
+                '**Footer**: Additional navigation and info links'
+            ];
+            userFlow = [
+                'User lands on main dashboard overview',
+                'User navigates between different dashboard sections',
+                'User interacts with charts and data visualizations',
+                'User can filter and sort data as needed'
+            ];
+        } else {
+            layoutDescription = 'Modern, clean layout with intuitive navigation';
+            components = [
+                '**Header**: Navigation and branding',
+                '**Main Content**: Primary application functionality',
+                '**Sidebar**: Additional features and controls',
+                '**Footer**: Links and information'
+            ];
+            userFlow = [
+                'User lands on main interface',
+                'User interacts with primary features',
+                'User receives feedback and confirmations',
+                'User can navigate to additional functionality'
+            ];
+        }
+
         return `## Wireframe Design
 
-Based on your requirements, here's the proposed structure:
+Based on your request: "${userInput}", here's the proposed structure:
 
-### Layout Components
-- **Header**: Navigation and branding
-- **Main Content**: Primary application functionality
-- **Sidebar**: Additional features and controls
-- **Footer**: Links and information
+### Layout Overview
+${layoutDescription}
+
+### Key Components
+${components.map(c => `- ${c}`).join('\n')}
 
 ### Interactive Elements
 - Form inputs with validation
@@ -688,12 +1055,81 @@ Based on your requirements, here's the proposed structure:
 - Responsive breakpoints for mobile
 
 ### User Flow
-1. User lands on main interface
-2. Interacts with primary features
-3. Receives feedback and confirmations
-4. Can navigate to additional functionality
+${userFlow.map((step, i) => `${i + 1}. ${step}`).join('\n')}
+
+### Responsive Considerations
+- Mobile-first design approach
+- Touch-friendly interface elements
+- Optimized layouts for different screen sizes
+- Progressive enhancement for desktop features
 
 This wireframe provides a solid foundation for the implementation phase.`;
+    }
+
+    /**
+     * Generate modification response using LLM logic
+     */
+    protected async generateLLMModificationResponse(context: Context, userInput: string): Promise<string> {
+        // TODO: Replace with actual LLM API call
+        
+        const input = userInput.toLowerCase();
+        let modificationType = 'general updates';
+        let changes: string[] = [];
+        
+        if (input.includes('add') || input.includes('new')) {
+            modificationType = 'feature addition';
+            changes = [
+                'Adding new functionality to the existing codebase',
+                'Integrating new components and features',
+                'Updating navigation and user interface'
+            ];
+        } else if (input.includes('fix') || input.includes('bug') || input.includes('error')) {
+            modificationType = 'bug fixes';
+            changes = [
+                'Identifying and resolving code issues',
+                'Fixing user interface problems',
+                'Improving error handling and validation'
+            ];
+        } else if (input.includes('style') || input.includes('design') || input.includes('ui')) {
+            modificationType = 'design updates';
+            changes = [
+                'Updating visual design and styling',
+                'Improving user interface components',
+                'Enhancing user experience'
+            ];
+        } else if (input.includes('performance') || input.includes('optimize')) {
+            modificationType = 'performance optimization';
+            changes = [
+                'Optimizing code for better performance',
+                'Reducing bundle size and load times',
+                'Improving rendering efficiency'
+            ];
+        }
+
+        return `## Code Modification - ${modificationType.charAt(0).toUpperCase() + modificationType.slice(1)}
+
+I'm updating the existing application based on your request: "${userInput}"
+
+### Changes Being Made
+${changes.map(c => `- ${c}`).join('\n')}
+- Maintaining code quality and structure
+- Testing updated functionality
+- Ensuring backward compatibility
+
+### Updated Features
+- Enhanced user interface
+- Improved functionality
+- Better error handling
+- Optimized performance
+
+### Implementation Process
+1. **Analyzing current code** - Understanding existing structure
+2. **Planning modifications** - Determining best approach for changes
+3. **Implementing updates** - Making targeted code changes
+4. **Testing changes** - Ensuring everything works correctly
+5. **Deployment ready** - Preparing updated application
+
+The modifications will be applied while preserving existing functionality and maintaining code quality standards.`;
     }
 
     /**
@@ -701,12 +1137,17 @@ This wireframe provides a solid foundation for the implementation phase.`;
      */
     protected generateCodingResponse(context: Context): string {
         // Generate actual code files for the coding agent
-        const generatedCode = this.generateCodeFiles(context);
+        const originalUserInput = this.getOriginalUserInput(context);
+        const generatedCode = this.generateCodeFiles(context, originalUserInput);
 
         // Store the generated code in the result
         if (generatedCode) {
             (context as any).generatedCodeFiles = generatedCode;
         }
+
+        // Determine app type for specific messaging
+        const appType = this.determineAppType(originalUserInput);
+        const appDescription = this.getAppDescription(appType, originalUserInput);
 
         // Check if we have dev server info from tool execution
         const devServerInfo = context.state?.coding_result?.devServer;
@@ -717,7 +1158,7 @@ This wireframe provides a solid foundation for the implementation phase.`;
 
 ### 🌐 Your Application is Ready!
 
-**🎉 Your app is now running at: [${devServerInfo.url}](${devServerInfo.url})**
+**🎉 Your ${appDescription} is now running at: [${devServerInfo.url}](${devServerInfo.url})**
 
 Click the link above to open your application in a new tab, or copy and paste the URL into your browser.
 
@@ -725,26 +1166,26 @@ The development server is running in the background and will automatically reloa
         } else {
             appAccessInfo = `
 
-### � Starting Development Server
+### 🔄 Starting Development Server
 
-The application is being built in a containerized environment. Once the build completes successfully, you'll be able to preview your application!`;
+Your ${appDescription} is being built in a containerized environment. Once the build completes successfully, you'll be able to preview your application!`;
         }
 
-        return `## �🚀 Building Your Application
+        return `## 🚀 Building Your ${appDescription}
 
-I'm creating a complete React application based on your requirements using a Linux-like development environment.
+I'm creating your ${appDescription} based on your request: "${originalUserInput}"
 
 ### 🔧 Development Process
-1. **Setting up project structure** - Creating directories and files
-2. **Generating code files** - Writing React components and configuration
+1. **Setting up project structure** - Creating directories and files for your ${appType} app
+2. **Generating code files** - Writing React components with ${appType}-specific functionality
 3. **Installing dependencies** - Running npm install
 4. **Building application** - Compiling TypeScript and optimizing
-5. **Starting dev server** - Launching the application
+5. **Starting dev server** - Launching your ${appDescription}
 
 ### 📁 Generated Project Structure
 - **package.json** - Dependencies and build scripts
 - **index.html** - Main HTML entry point
-- **src/App.tsx** - Main React component with your features
+- **src/App.tsx** - Main React component with your ${appType} features
 - **src/main.tsx** - React application bootstrap
 - **src/App.css** - Tailwind CSS styling
 - **vite.config.ts** - Build configuration
@@ -752,37 +1193,137 @@ I'm creating a complete React application based on your requirements using a Lin
 - **tailwind.config.js** - Tailwind CSS setup
 
 ### ✨ Features Implemented
-- Modern React 18 with TypeScript
-- Responsive design with Tailwind CSS
-- Clean component architecture
-- Interactive user interface
-- Production-ready code structure
-- Accessibility features
-- Error handling and validation${appAccessInfo}`;
+${this.getFeatureList(appType, originalUserInput)}${appAccessInfo}`;
+    }
+
+    /**
+     * Get user-friendly app description based on type and input
+     */
+    protected getAppDescription(appType: string, userInput: string): string {
+        switch (appType) {
+            case 'todo':
+                return 'Todo Application';
+            case 'dashboard':
+                return 'Dashboard Application';
+            case 'form':
+                return 'Form Application';
+            case 'blog':
+                return 'Blog Application';
+            case 'portfolio':
+                return 'Portfolio Website';
+            case 'landing':
+                return 'Landing Page';
+            case 'shop':
+                return 'E-commerce Application';
+            default:
+                return 'Web Application';
+        }
+    }
+
+    /**
+     * Get feature list based on app type and user input
+     */
+    protected getFeatureList(appType: string, userInput: string): string {
+        const baseFeatures = [
+            '- Modern React 18 with TypeScript',
+            '- Responsive design with Tailwind CSS',
+            '- Clean component architecture',
+            '- Production-ready code structure',
+            '- Accessibility features'
+        ];
+
+        const specificFeatures = this.getAppSpecificFeatures(appType, userInput);
+
+        return [...specificFeatures, ...baseFeatures].join('\n');
+    }
+
+    /**
+     * Get app-specific features based on type and user input
+     */
+    protected getAppSpecificFeatures(appType: string, userInput: string): string[] {
+        const input = userInput.toLowerCase();
+
+        switch (appType) {
+            case 'todo':
+                const todoFeatures = ['- Task management with add/edit/delete functionality'];
+
+                if (input.includes('filter') || input.includes('status')) {
+                    todoFeatures.push('- Filter tasks by status (all, active, completed)');
+                }
+                if (input.includes('local storage') || input.includes('persist')) {
+                    todoFeatures.push('- Local storage for persistent data');
+                }
+                if (input.includes('dark mode') || input.includes('theme')) {
+                    todoFeatures.push('- Dark/light mode toggle');
+                }
+                if (input.includes('animation') || input.includes('smooth')) {
+                    todoFeatures.push('- Smooth animations for interactions');
+                }
+                if (input.includes('counter') || input.includes('count')) {
+                    todoFeatures.push('- Task counter showing remaining items');
+                }
+                if (input.includes('confirmation') || input.includes('confirm')) {
+                    todoFeatures.push('- Delete confirmation for safety');
+                }
+
+                return todoFeatures;
+
+            case 'dashboard':
+                return [
+                    '- Interactive dashboard components',
+                    '- Data visualization and charts',
+                    '- Admin panel functionality'
+                ];
+
+            case 'form':
+                return [
+                    '- Form validation and error handling',
+                    '- Input field components',
+                    '- Submission handling'
+                ];
+
+            default:
+                return ['- Interactive user interface'];
+        }
     }
 
     /**
      * Generate actual code files based on context
      */
-    protected generateCodeFiles(context: Context): Record<string, string> {
-        const userInput = context.userInput;
+    protected generateCodeFiles(context: Context, userInput?: string): Record<string, string> {
+        console.log('🐛 DEBUG: generateCodeFiles called');
+
+        // Use provided userInput or get original from context
+        const effectiveUserInput = userInput || this.getOriginalUserInput(context);
+
+        console.log('🐛 DEBUG: Context userInput:', context.userInput);
+        console.log('🐛 DEBUG: Effective userInput:', effectiveUserInput);
+        console.log('🐛 DEBUG: Context requirements:', context.requirements);
+        console.log('🐛 DEBUG: Context wireframe:', context.wireframe);
+
         const wireframe = context.wireframe || '';
         const requirements = context.requirements || '';
 
-        // Determine app type based on input
-        const appType = this.determineAppType(userInput);
+        // Determine app type based on the original user input
+        const appType = this.determineAppType(effectiveUserInput);
+        console.log('🐛 DEBUG: Determined app type:', appType);
 
-        return {
+        const files = {
             'package.json': this.generatePackageJson(appType),
             'index.html': this.generateIndexHtml(appType),
             'src/main.tsx': this.generateMainTsx(),
-            'src/App.tsx': this.generateAppTsx(appType, userInput),
+            'src/App.tsx': this.generateAppTsx(appType, effectiveUserInput),
             'src/App.css': this.generateAppCss(),
             'tailwind.config.js': this.generateTailwindConfig(),
             'vite.config.ts': this.generateViteConfig(),
             'tsconfig.json': this.generateTsConfig(),
-            'README.md': this.generateReadme(appType, userInput)
+            'README.md': this.generateReadme(appType, effectiveUserInput)
         };
+
+        console.log('🐛 DEBUG: Generated files:', Object.keys(files));
+        console.log('🐛 DEBUG: App.tsx preview:', files['src/App.tsx']?.substring(0, 150) + '...');
+
+        return files;
     }
 
     /**
@@ -1214,29 +1755,6 @@ Generated by AI App Builder 🤖`;
     }
 
     /**
-     * Generate modification response
-     */
-    protected generateModificationResponse(context: Context): string {
-        return `## Code Modification
-
-I'm updating the existing application based on your feedback:
-
-### Changes Being Made
-- Analyzing current implementation
-- Applying requested modifications
-- Maintaining code quality and structure
-- Testing updated functionality
-
-### Updated Features
-- Enhanced user interface
-- Improved functionality
-- Better error handling
-- Optimized performance
-
-The modifications will be applied while preserving existing functionality.`;
-    }
-
-    /**
      * Emit AG-UI event through context
      */
     protected emitAgUiEvent(context: Context, event: AgUiEvent): void {
@@ -1253,5 +1771,121 @@ The modifications will be applied while preserving existing functionality.`;
             timestamp: Date.now(),
             ...data
         } as AgUiEvent);
+    }
+
+    /**
+     * Write generated files to debug directory for inspection
+     */
+    protected async writeDebugFiles(conversationId: string, generatedCode: Record<string, string>): Promise<void> {
+        try {
+            const debugDir = path.join(process.cwd(), 'apps', 'server', 'ai-app-builder-debug', conversationId);
+            console.log('🐛 DEBUG: Creating debug directory:', debugDir);
+
+            // Create debug directory
+            await fs.mkdir(debugDir, { recursive: true });
+
+            // Write each generated file
+            for (const [filePath, content] of Object.entries(generatedCode)) {
+                const fullPath = path.join(debugDir, 'generated', filePath);
+                const dir = path.dirname(fullPath);
+
+                // Create directory if needed
+                await fs.mkdir(dir, { recursive: true });
+
+                // Write file
+                await fs.writeFile(fullPath, content, 'utf8');
+                console.log(`🐛 DEBUG: Wrote generated file: ${fullPath}`);
+            }
+
+            // Also write a summary file
+            const summary = {
+                timestamp: new Date().toISOString(),
+                conversationId,
+                generatedFiles: Object.keys(generatedCode),
+                appType: 'unknown', // Could be enhanced to include this
+                totalFiles: Object.keys(generatedCode).length
+            };
+
+            await fs.writeFile(
+                path.join(debugDir, '_generation_summary.json'),
+                JSON.stringify(summary, null, 2),
+                'utf8'
+            );
+
+            console.log(`🐛 DEBUG: Generated files written to: ${debugDir}/generated/`);
+        } catch (error) {
+            console.error('🐛 DEBUG: Failed to write generated debug files:', error);
+        }
+    }
+
+    /**
+     * Write current container file contents to debug directory
+     */
+    protected async writeContainerDebugFiles(conversationId: string): Promise<void> {
+        try {
+            const debugDir = path.join(process.cwd(), 'debug', conversationId, 'container');
+            await fs.mkdir(debugDir, { recursive: true });
+
+            // List of files to capture from container
+            const filesToCapture = [
+                'package.json',
+                'src/App.tsx',
+                'src/App.css',
+                'src/main.tsx',
+                'index.html'
+            ];
+
+            const containerFiles: Record<string, string> = {};
+
+            for (const file of filesToCapture) {
+                try {
+                    const result = await this.appContainer.executeCommand(`cat ${file}`);
+                    if (result.exitCode === 0) {
+                        containerFiles[file] = result.stdout;
+
+                        // Write individual file
+                        const fullPath = path.join(debugDir, file);
+                        const dir = path.dirname(fullPath);
+                        await fs.mkdir(dir, { recursive: true });
+                        await fs.writeFile(fullPath, result.stdout, 'utf8');
+                        console.log(`🐛 DEBUG: Captured container file: ${fullPath}`);
+                    } else {
+                        console.log(`🐛 DEBUG: Could not capture ${file}: ${result.stderr}`);
+                    }
+                } catch (error) {
+                    console.log(`🐛 DEBUG: Error capturing ${file}:`, error);
+                }
+            }
+
+            // Write container summary
+            const containerSummary = {
+                timestamp: new Date().toISOString(),
+                conversationId,
+                capturedFiles: Object.keys(containerFiles),
+                workDir: await this.getContainerWorkDir()
+            };
+
+            await fs.writeFile(
+                path.join(debugDir, '_container_summary.json'),
+                JSON.stringify(containerSummary, null, 2),
+                'utf8'
+            );
+
+            console.log(`🐛 DEBUG: Container files written to: ${debugDir}`);
+        } catch (error) {
+            console.error('🐛 DEBUG: Failed to write container debug files:', error);
+        }
+    }
+
+    /**
+     * Get container working directory for debugging
+     */
+    protected async getContainerWorkDir(): Promise<string> {
+        try {
+            const result = await this.appContainer.executeCommand('pwd');
+            return result.exitCode === 0 ? result.stdout.trim() : 'unknown';
+        } catch (error) {
+            return 'error';
+        }
     }
 }

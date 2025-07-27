@@ -230,33 +230,61 @@ function App() {
                     </p>
                 </div>
             ) : (
-                parsedMessages.map((message) => (
-                    <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                        <div className="flex items-start gap-2 max-w-[85%]">
-                            {message.role === 'assistant' && (
-                                <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center flex-shrink-0 mt-1">
-                                    <span className="text-xs">🤖</span>
+                <>
+                    {parsedMessages.map((message) => (
+                        <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div className="flex items-start gap-2 max-w-[85%]">
+                                {message.role === 'assistant' && (
+                                    <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center flex-shrink-0 mt-1">
+                                        <span className="text-xs">🤖</span>
+                                    </div>
+                                )}
+                                <div className={`p-3 rounded-lg ${message.role === 'user'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-muted'
+                                    }`}>
+                                    <div className="whitespace-pre-wrap text-sm">
+                                        {message.content}
+                                        {!message.isComplete && (
+                                            <span className="inline-block w-1 h-4 bg-current opacity-75 animate-pulse ml-1">|</span>
+                                        )}
+                                    </div>
                                 </div>
-                            )}
-                            <div className={`p-3 rounded-lg ${message.role === 'user'
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-muted'
-                                }`}>
-                                <div className="whitespace-pre-wrap text-sm">
-                                    {message.content}
-                                    {!message.isComplete && (
-                                        <span className="inline-block w-1 h-4 bg-current opacity-75 animate-pulse ml-1">|</span>
-                                    )}
+                                {message.role === 'user' && (
+                                    <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center flex-shrink-0 mt-1">
+                                        <span className="text-xs">👤</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+
+                    {/* Generated App URL Display */}
+                    {context.state?.appUrl && (
+                        <div className="flex justify-center">
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-4 max-w-md w-full text-center">
+                                <div className="text-green-800 font-medium mb-2">🎉 Your App is Ready!</div>
+                                <div className="text-sm text-green-700 mb-3">
+                                    Your application has been generated and is running.
+                                </div>
+                                <a
+                                    href={context.state.appUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                >
+                                    <span>View Your App</span>
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                </a>
+                                <div className="text-xs text-green-600 mt-2">
+                                    {context.state.appUrl}
                                 </div>
                             </div>
-                            {message.role === 'user' && (
-                                <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center flex-shrink-0 mt-1">
-                                    <span className="text-xs">👤</span>
-                                </div>
-                            )}
                         </div>
-                    </div>
-                ))
+                    )}
+                </>
             )}
         </div>
     );    // Render detailed events (technical debug view)
