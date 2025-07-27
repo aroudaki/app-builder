@@ -341,12 +341,35 @@ export class BaseAgent {
                 }
             }
 
-            return {
-                type: 'app_container_execution',
-                commands: results,
-                workDir: this.appContainer['workDir'], // Access private property for result
-                success: results.every(r => r.exitCode === 0)
-            };
+            // Start the development server properly
+            console.log('🚀 Starting development server...');
+            const devServerInfo = await this.appContainer.startDevServer();
+
+            if (devServerInfo.success) {
+                console.log(`✅ Application is now running at: ${devServerInfo.url}`);
+
+                // Store the app URL in context for later use
+                return {
+                    type: 'app_container_execution',
+                    commands: results,
+                    workDir: this.appContainer['workDir'], // Access private property for result
+                    success: results.every(r => r.exitCode === 0),
+                    devServer: {
+                        url: devServerInfo.url,
+                        port: devServerInfo.port,
+                        isRunning: true
+                    }
+                };
+            } else {
+                console.error('❌ Failed to start development server');
+                return {
+                    type: 'app_container_execution',
+                    commands: results,
+                    workDir: this.appContainer['workDir'],
+                    success: false,
+                    error: 'Failed to start development server: ' + devServerInfo.output
+                };
+            }
         }
 
         // For other agents, return basic container info
@@ -368,11 +391,7 @@ export class BaseAgent {
             'ls -la',
             'cat package.json',
             'cat src/App.tsx',
-            'cat src/components/ui/button.tsx',
-            // Install dependencies (boilerplate already created)
-            'npm install',
-            // Start dev server to test changes
-            'npm run dev'
+            // Note: npm install and dev server start are handled separately by startDevServer()
         ];
 
         return commands;
@@ -689,7 +708,29 @@ This wireframe provides a solid foundation for the implementation phase.`;
             (context as any).generatedCodeFiles = generatedCode;
         }
 
-        return `## 🚀 Building Your Application
+        // Check if we have dev server info from tool execution
+        const devServerInfo = context.state?.coding_result?.devServer;
+
+        let appAccessInfo = '';
+        if (devServerInfo?.isRunning && devServerInfo.url) {
+            appAccessInfo = `
+
+### 🌐 Your Application is Ready!
+
+**🎉 Your app is now running at: [${devServerInfo.url}](${devServerInfo.url})**
+
+Click the link above to open your application in a new tab, or copy and paste the URL into your browser.
+
+The development server is running in the background and will automatically reload when you make changes.`;
+        } else {
+            appAccessInfo = `
+
+### � Starting Development Server
+
+The application is being built in a containerized environment. Once the build completes successfully, you'll be able to preview your application!`;
+        }
+
+        return `## �🚀 Building Your Application
 
 I'm creating a complete React application based on your requirements using a Linux-like development environment.
 
@@ -717,9 +758,7 @@ I'm creating a complete React application based on your requirements using a Lin
 - Interactive user interface
 - Production-ready code structure
 - Accessibility features
-- Error handling and validation
-
-The application is being built in a containerized environment. Once the build completes successfully, you'll be able to preview your application!`;
+- Error handling and validation${appAccessInfo}`;
     }
 
     /**

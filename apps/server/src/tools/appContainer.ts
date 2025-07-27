@@ -3,6 +3,7 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { EventEmitter } from 'events';
+import * as net from 'net';
 
 /**
  * Helper function to safely extract error message from unknown error
@@ -167,7 +168,7 @@ export class AppContainer {
   </body>
 </html>`);
 
-        // Create vite.config.ts
+        // Create vite.config.ts - use port 3001 to avoid conflicts with main app
         await fs.writeFile(path.join(appPath, 'vite.config.ts'), `import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
@@ -175,6 +176,11 @@ import path from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    host: '0.0.0.0', // Allow external access
+    port: 3001, // Use a different port to avoid conflicts
+    strictPort: false, // Allow automatic port selection if busy
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -1018,6 +1024,184 @@ export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
     }
 
     /**
+     * Check if a port is available/responding
+     */
+    private checkPort(port: number): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const socket = new net.Socket();
+
+            socket.setTimeout(1000);
+
+            socket.on('connect', () => {
+                socket.destroy();
+                resolve();
+            });
+
+            socket.on('timeout', () => {
+                socket.destroy();
+                reject(new Error('Port check timeout'));
+            });
+
+            socket.on('error', (error) => {
+                socket.destroy();
+                reject(error);
+            });
+
+            socket.connect(port, 'localhost');
+        });
+    }
+
+    /**
+     * Start the development server and return the URL
+     */
+    async startDevServer(): Promise<{ url: string; port: number; success: boolean; output: string }> {
+        const port = 3001; // Same as configured in vite.config.ts
+
+        try {
+            console.log('🚀 Starting development server...');
+
+            // First, install dependencies if not already done
+            console.log('📦 Installing dependencies...');
+            const installResult = await this.executeCommand('npm install');
+
+            if (installResult.exitCode !== 0) {
+                console.warn('⚠️ npm install failed, continuing anyway...');
+            }
+
+            // Start npm run dev in background - use proper backgrounding
+            const devCommand = 'npm run dev';
+            console.log(`🔧 Executing: ${devCommand} in ${this.currentDir}`);
+
+            const realPath = this.toRealPath(this.currentDir);
+
+            // Start the process directly without shell backgrounding
+            const devProcess = spawn('npm', ['run', 'dev'], {
+                cwd: realPath,
+                detached: true,
+                stdio: ['ignore', 'pipe', 'pipe'],
+                env: {
+                    ...process.env,
+                    ...Object.fromEntries(this.environment),
+                    PATH: process.env.PATH
+                }
+            });
+
+            let output = '';
+
+            // Collect output to detect when server is ready
+            devProcess.stdout?.on('data', (data) => {
+                output += data.toString();
+            });
+
+            devProcess.stderr?.on('data', (data) => {
+                output += data.toString();
+            });
+
+            // Store the process
+            this.processes.set('npm-dev', devProcess);
+
+            // Wait for the server to start by checking output or port
+            let serverReady = false;
+            let attempts = 0;
+            const maxAttempts = 20; // 10 seconds total
+
+            while (!serverReady && attempts < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                attempts++;
+
+                // Check if process is still running
+                if (devProcess.killed || devProcess.exitCode !== null) {
+                    console.error('❌ Dev server process died unexpectedly');
+                    break;
+                }
+
+                // Check output for ready indicators
+                if (output.includes('ready') || output.includes('Local:') || output.includes('localhost')) {
+                    serverReady = true;
+                    break;
+                }
+
+                // Try to connect to the port
+                try {
+                    await this.checkPort(port);
+                    serverReady = true;
+                    break;
+                } catch (error) {
+                    // Port not ready yet, continue waiting
+                }
+            }
+
+            if (serverReady) {
+                const url = `http://localhost:${port}`;
+                console.log(`✅ Development server started at ${url}`);
+
+                return {
+                    url,
+                    port,
+                    success: true,
+                    output
+                };
+            } else {
+                console.error('❌ Development server failed to start within timeout');
+                return {
+                    url: '',
+                    port: 0,
+                    success: false,
+                    output: output || 'Server startup timeout'
+                };
+            }
+        } catch (error) {
+            console.error('❌ Failed to start development server:', error);
+            return {
+                url: '',
+                port: 0,
+                success: false,
+                output: getErrorMessage(error)
+            };
+        }
+    }
+
+    /**
+     * Get running development server info
+     */
+    getDevServerInfo(): { isRunning: boolean; url?: string; port?: number } {
+        const devProcess = this.processes.get('npm-dev');
+
+        if (devProcess && !devProcess.killed && devProcess.exitCode === null) {
+            return {
+                isRunning: true,
+                url: 'http://localhost:3001',
+                port: 3001
+            };
+        }
+
+        return {
+            isRunning: false
+        };
+    }
+
+    /**
+     * Stop the development server
+     */
+    async stopDevServer(): Promise<boolean> {
+        const devProcess = this.processes.get('npm-dev');
+
+        if (devProcess && !devProcess.killed) {
+            try {
+                devProcess.kill('SIGTERM');
+                this.processes.delete('npm-dev');
+                console.log('🛑 Development server stopped');
+                return true;
+            } catch (error) {
+                console.error('❌ Failed to stop development server:', error);
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Execute npm commands
      */
     private async npm(args: string[]): Promise<CommandResult> {
@@ -1025,10 +1209,16 @@ export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
         const realPath = this.toRealPath(this.currentDir);
 
         return new Promise((resolve) => {
+            // Use Node.js and npm from the system PATH
             const npm = spawn('npm', args, {
                 cwd: realPath,
                 shell: true,
-                env: { ...process.env, ...Object.fromEntries(this.environment) }
+                stdio: ['pipe', 'pipe', 'pipe'],
+                env: {
+                    ...process.env,
+                    ...Object.fromEntries(this.environment),
+                    PATH: process.env.PATH // Ensure npm is in PATH
+                }
             });
 
             let stdout = '';
