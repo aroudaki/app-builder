@@ -138,67 +138,62 @@ function App() {
         }
     }, [context.events.length, showDetailedEvents]);
 
-    // Handle sending messages
-    const handleSendMessage = useCallback(async () => {
-        if (!messageInput.trim() || !isConnected) return;
-
-        const userMessage: ParsedMessage = {
-            id: `user-${Date.now()}`,
-            role: 'user',
-            content: messageInput.trim(),
-            timestamp: Date.now(),
-            isComplete: true
-        };
-
-        try {
-            setIsLoading(true);
-            setUserMessages(prev => [...prev, userMessage]);
-
-            console.log('📤 Sending message:', {
-                length: messageInput.trim().length,
-                preview: messageInput.trim().substring(0, 100) + (messageInput.trim().length > 100 ? '...' : ''),
-                isConnected,
-                timestamp: Date.now()
-            });
-
-            await sendMessage({
-                type: 'user_message',
-                content: messageInput.trim()
-            });
-
-            console.log('✅ Message sent successfully');
-            setMessageInput('');
-        } catch (error) {
-            console.error('❌ Failed to send message:', error);
-            // Remove the user message if sending failed
-            setUserMessages(prev => prev.filter(msg => msg.id !== userMessage.id));
-        } finally {
-            setIsLoading(false);
-        }
-    }, [messageInput, isConnected, sendMessage]);
-
-    // Handle continuing without clarification response
-    const handleContinue = useCallback(async () => {
+    // Handle continuing without clarification response OR sending message
+    const handleContinueOrSend = useCallback(async () => {
         if (!isConnected) return;
 
+        const messageContent = messageInput.trim();
+
         try {
             setIsLoading(true);
 
-            console.log('⏭️ Continuing without clarification response');
+            if (allowContinue && !messageContent) {
+                // Continue without clarification response (empty message)
+                console.log('⏭️ Continuing without clarification response');
+                await sendMessage({
+                    type: 'user_message',
+                    content: '' // Empty content for continue
+                });
+                console.log('✅ Continue request sent successfully');
+            } else {
+                // Send user message (either regular message or clarification response)
+                if (!messageContent) return; // Don't send empty messages when not in continue mode
 
-            // Send empty message to continue
-            await sendMessage({
-                type: 'user_message',
-                content: '' // Empty content for continue
-            });
+                const userMessage: ParsedMessage = {
+                    id: `user-${Date.now()}`,
+                    role: 'user',
+                    content: messageContent,
+                    timestamp: Date.now(),
+                    isComplete: true
+                };
 
-            console.log('✅ Continue request sent successfully');
+                setUserMessages(prev => [...prev, userMessage]);
+
+                console.log('📤 Sending message:', {
+                    length: messageContent.length,
+                    preview: messageContent.substring(0, 100) + (messageContent.length > 100 ? '...' : ''),
+                    isConnected,
+                    timestamp: Date.now()
+                });
+
+                await sendMessage({
+                    type: 'user_message',
+                    content: messageContent
+                });
+
+                console.log('✅ Message sent successfully');
+                setMessageInput('');
+            }
         } catch (error) {
-            console.error('❌ Failed to send continue request:', error);
+            console.error('❌ Failed to send message:', error);
+            // Remove the user message if sending failed (only if we added one)
+            if (messageInput.trim()) {
+                setUserMessages(prev => prev.filter(msg => msg.id !== `user-${Date.now()}`));
+            }
         } finally {
             setIsLoading(false);
         }
-    }, [isConnected, sendMessage]);
+    }, [messageInput, isConnected, allowContinue, sendMessage]);
 
     // Handle suggested prompt selection
     const handleSuggestedPrompt = useCallback((prompt: SuggestedPrompt) => {
@@ -220,9 +215,9 @@ function App() {
     const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            handleSendMessage();
+            handleContinueOrSend();
         }
-    }, [handleSendMessage]);
+    }, [handleContinueOrSend]);
 
     // Render conversation messages (user-friendly format)
     const renderMessages = () => (
@@ -333,9 +328,6 @@ function App() {
 
     // Render input area
     const renderInput = () => {
-        const canSend = isConnected && !isLoading && messageInput.trim();
-        const canContinue = isConnected && !isLoading && allowContinue;
-
         return (
             <div className="space-y-3">
                 {/* Suggested Prompts */}
@@ -372,50 +364,22 @@ function App() {
                         onInput={adjustTextareaHeight}
                     />
 
-                    {/* Send Button */}
+                    {/* Unified Send/Continue Button */}
                     <button
-                        onClick={handleSendMessage}
-                        disabled={!canSend}
-                        className={`px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 h-11 flex items-center justify-center ${allowContinue ? 'hidden' : 'block'}`}
+                        onClick={handleContinueOrSend}
+                        disabled={!isConnected || isLoading || (!allowContinue && !messageInput.trim())}
+                        className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 h-11 flex items-center justify-center"
                     >
                         {isLoading ? (
                             <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                         ) : (
-                            <span className="text-sm">Send</span>
-                        )}
-                    </button>
-
-                    {/* Continue Button */}
-                    <button
-                        onClick={handleContinue}
-                        disabled={!canContinue}
-                        className={`px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 h-11 flex items-center justify-center ${allowContinue ? 'block' : 'hidden'}`}
-                    >
-                        {isLoading ? (
-                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                            <span className="text-sm">Continue</span>
-                        )}
-                    </button>
-
-                    {/* Send Button (when continue is available) */}
-                    <button
-                        onClick={handleSendMessage}
-                        disabled={!canSend}
-                        className={`px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 h-11 flex items-center justify-center ${allowContinue ? 'block' : 'hidden'}`}
-                    >
-                        {isLoading ? (
-                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                            <span className="text-sm">Send</span>
+                            <span className="text-sm">{allowContinue ? 'Continue' : 'Send'}</span>
                         )}
                     </button>
                 </div>
             </div>
         );
-    };
-
-    return (
+    }; return (
         <div className="min-h-screen bg-background">
             <div className="container mx-auto px-4 py-6 max-w-4xl">
                 <main className="space-y-4">
