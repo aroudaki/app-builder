@@ -233,7 +233,7 @@ export class BaseAgent {
     protected async processWithLLM(context: Context): Promise<any> {
         // TODO: This would integrate with Azure OpenAI in a real implementation
         // For now, we'll generate contextual responses based on agent type and user input
-        
+
         const prompt = this.buildPrompt(context);
         const originalUserInput = this.getOriginalUserInput(context);
 
@@ -303,7 +303,7 @@ export class BaseAgent {
         // All agents should now use LLM-generated responses
         // This method is a fallback and should be replaced by processWithLLM
         const originalUserInput = this.getOriginalUserInput(context);
-        
+
         switch (this.config.name) {
             case 'clarification':
                 return `I'd like to understand your requirements better for: "${originalUserInput}". Let me ask a few questions to ensure I build exactly what you need.`;
@@ -858,19 +858,19 @@ COMPEOF`);
     protected async generateLLMClarificationResponse(context: Context, userInput: string): Promise<string> {
         // TODO: Replace with actual LLM API call
         // For now, generate intelligent clarification questions based on the user input
-        
+
         const input = userInput.toLowerCase();
         const questions = [];
-        
+
         // Analyze user input to ask relevant questions
         if (!input.includes('react') && !input.includes('vue') && !input.includes('angular')) {
             questions.push('What frontend framework would you prefer? (React, Vue, Angular, or vanilla JS)');
         }
-        
+
         if (!input.includes('styling') && !input.includes('css') && !input.includes('tailwind')) {
             questions.push('What styling approach would you like? (Tailwind CSS, styled-components, CSS modules, or plain CSS)');
         }
-        
+
         if (input.includes('todo') || input.includes('task')) {
             if (!input.includes('storage') && !input.includes('persist')) {
                 questions.push('How should tasks be stored? (Local storage, database, or session only)');
@@ -879,17 +879,17 @@ COMPEOF`);
                 questions.push('Do you need filtering/sorting features? (by status, date, priority, etc.)');
             }
         }
-        
+
         if (input.includes('dashboard') || input.includes('admin')) {
             questions.push('What type of data will the dashboard display?');
             questions.push('Do you need charts, graphs, or data visualization?');
         }
-        
+
         if (input.includes('form') || input.includes('contact')) {
             questions.push('What fields should the form include?');
             questions.push('Where should form submissions be sent?');
         }
-        
+
         // Add general questions if not enough specific ones
         if (questions.length < 2) {
             if (!input.includes('responsive') && !input.includes('mobile')) {
@@ -899,9 +899,9 @@ COMPEOF`);
                 questions.push('Do you need user authentication/login functionality?');
             }
         }
-        
+
         const questionsList = questions.slice(0, 4).map((q, i) => `${i + 1}. ${q}`).join('\n');
-        
+
         return `I'd like to understand your requirements better for: "${userInput}"
 
 Here are a few questions to help me build exactly what you need:
@@ -916,11 +916,11 @@ Please provide any additional details or let me know if you'd like me to proceed
      */
     protected async generateLLMRequirementsResponse(context: Context, userInput: string): Promise<string> {
         // TODO: Replace with actual LLM API call
-        
+
         const input = userInput.toLowerCase();
         let appType = 'Web Application';
         let specificFeatures: string[] = [];
-        
+
         // Determine app type and features from user input
         if (input.includes('todo') || input.includes('task')) {
             appType = 'Todo Application';
@@ -929,7 +929,7 @@ Please provide any additional details or let me know if you'd like me to proceed
                 'Task completion status tracking',
                 'Task filtering and organization'
             ];
-            
+
             if (input.includes('filter')) specificFeatures.push('Advanced filtering by status/date');
             if (input.includes('storage') || input.includes('persist')) specificFeatures.push('Data persistence');
             if (input.includes('dark mode')) specificFeatures.push('Dark/light theme toggle');
@@ -948,12 +948,12 @@ Please provide any additional details or let me know if you'd like me to proceed
                 'Submission processing'
             ];
         }
-        
-        const framework = input.includes('vue') ? 'Vue.js' : 
-                         input.includes('angular') ? 'Angular' : 'React';
-        
+
+        const framework = input.includes('vue') ? 'Vue.js' :
+            input.includes('angular') ? 'Angular' : 'React';
+
         const styling = input.includes('styled-components') ? 'Styled Components' :
-                       input.includes('css modules') ? 'CSS Modules' : 'Tailwind CSS';
+            input.includes('css modules') ? 'CSS Modules' : 'Tailwind CSS';
 
         return `Based on your request: "${userInput}", I've analyzed the requirements:
 
@@ -985,12 +985,12 @@ These requirements will guide the wireframe and implementation phases.`;
      */
     protected async generateLLMWireframeResponse(context: Context, userInput: string): Promise<string> {
         // TODO: Replace with actual LLM API call
-        
+
         const input = userInput.toLowerCase();
         let layoutDescription = '';
         let components = [];
         let userFlow = [];
-        
+
         if (input.includes('todo') || input.includes('task')) {
             layoutDescription = 'Clean, focused layout optimized for task management';
             components = [
@@ -1071,11 +1071,11 @@ This wireframe provides a solid foundation for the implementation phase.`;
      */
     protected async generateLLMModificationResponse(context: Context, userInput: string): Promise<string> {
         // TODO: Replace with actual LLM API call
-        
+
         const input = userInput.toLowerCase();
         let modificationType = 'general updates';
         let changes: string[] = [];
-        
+
         if (input.includes('add') || input.includes('new')) {
             modificationType = 'feature addition';
             changes = [
@@ -1823,7 +1823,7 @@ Generated by AI App Builder 🤖`;
      */
     protected async writeContainerDebugFiles(conversationId: string): Promise<void> {
         try {
-            const debugDir = path.join(process.cwd(), 'debug', conversationId, 'container');
+            const debugDir = path.join(process.cwd(), 'apps', 'server', 'ai-app-builder-debug', conversationId, 'container');
             await fs.mkdir(debugDir, { recursive: true });
 
             // List of files to capture from container
