@@ -23,12 +23,14 @@ export function selectPipeline(context: Context): Pipeline {
         return continueAfterClarificationPipeline;
     }
 
-    // Check if this is a modification request
+    // Check if this is a modification request (follow-up messages)
     if (!context.isFirstRequest || context.generatedCode) {
         return modificationPipeline;
     }
 
-    // For first requests, start with clarification only
+    // For first requests, always start with clarification
+    // The clarification agent itself will decide whether to skip based on message content
+    console.log(`🔍 First request detected, starting with clarification pipeline`);
     return clarificationOnlyPipeline;
 }
 

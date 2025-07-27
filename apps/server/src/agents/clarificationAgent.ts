@@ -30,10 +30,20 @@ Question areas to explore:
 Format your response as a friendly conversation, not a formal questionnaire.`,
 
     skipOn: (context: Context) => {
-        // Skip clarification if we already have detailed requirements or if user provided detailed input
-        return (context.requirements && context.requirements.length > 100) ||
-            context.userInput.length > 200 ||
-            context.state?.conversationState === 'awaiting_clarification_response'; // Don't run again if already waiting
+        // Don't run again if already waiting for clarification response
+        if (context.state?.conversationState === 'awaiting_clarification_response') {
+            return true;
+        }
+
+        // For first requests, NEVER skip - always ask clarifying questions
+        // This ensures the user gets proper guidance regardless of input length
+        if (context.isFirstRequest) {
+            return false; // Never skip for first requests
+        }
+
+        // For follow-up requests, always skip clarification
+        // (though clarification shouldn't run for follow-ups anyway due to pipeline logic)
+        return true;
     },
 
     validateOutput: (context: Context) => {

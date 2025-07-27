@@ -16,10 +16,15 @@ export async function handleWebSocketMessage(ws: WebSocket, input: RunAgentInput
     const startTime = Date.now();
 
     try {
+        const lastMessage = input.messages[input.messages.length - 1];
         console.log(`📨 Received AG-UI input:`, {
             conversationId: input.conversationId,
             messageCount: input.messages.length,
-            toolCount: input.tools?.length || 0
+            toolCount: input.tools?.length || 0,
+            lastMessageLength: lastMessage?.content?.length || 0,
+            lastMessagePreview: lastMessage?.content ?
+                lastMessage.content.substring(0, 100) + (lastMessage.content.length > 100 ? '...' : '') :
+                'No content',
         });
 
         // Emit RUN_STARTED event
@@ -32,7 +37,7 @@ export async function handleWebSocketMessage(ws: WebSocket, input: RunAgentInput
 
         // Load context from state or create new
         const context = await loadContext(input.state, input.messages);
-        
+
         // Set up event listener to forward AG-UI events to WebSocket
         context.events.on('aguiEvent', (event: AgUiEvent) => {
             emitEvent(ws, event);
@@ -107,11 +112,11 @@ export function createAgentHandler() {
             // Handle WebSocket upgrade
             const conversationId = generateUUID();
             console.log(`🔗 WebSocket connection established for conversation: ${conversationId}`);
-            
+
             const ws = new WebSocket(request.url);
             callback(ws);
         },
-        
+
         handleConnection: (ws: WebSocket) => {
             ws.on('message', async (data: Buffer) => {
                 try {
@@ -119,7 +124,7 @@ export function createAgentHandler() {
                     await handleWebSocketMessage(ws, input);
                 } catch (error) {
                     console.error('Failed to parse WebSocket message:', error);
-                    
+
                     const errorEvent: AgUiEvent = {
                         type: EventType.ERROR,
                         conversationId: 'unknown',

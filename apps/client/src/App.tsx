@@ -41,7 +41,6 @@ function App() {
     const [showDetailedEvents, setShowDetailedEvents] = useState(false);
     const [userMessages, setUserMessages] = useState<ParsedMessage[]>([]);
     const chatContainerRef = useRef<HTMLDivElement>(null);
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     // Initialize AG-UI
     const {
@@ -106,19 +105,6 @@ function App() {
         }
     }, [parsedMessages]);
 
-    // Function to resize textarea based on content
-    const resizeTextarea = useCallback((textarea: HTMLTextAreaElement) => {
-        textarea.style.height = 'auto';
-        textarea.style.height = Math.min(textarea.scrollHeight, 128) + 'px';
-    }, []);
-
-    // Resize textarea when content changes
-    useEffect(() => {
-        if (textareaRef.current) {
-            resizeTextarea(textareaRef.current);
-        }
-    }, [messageInput, resizeTextarea]);
-
     // Handle sending messages
     const handleSendMessage = useCallback(async () => {
         if (!messageInput.trim() || !isConnected) return;
@@ -135,13 +121,22 @@ function App() {
             setIsLoading(true);
             setUserMessages(prev => [...prev, userMessage]);
 
+            console.log('📤 Sending message:', {
+                length: messageInput.trim().length,
+                preview: messageInput.trim().substring(0, 100) + (messageInput.trim().length > 100 ? '...' : ''),
+                isConnected,
+                timestamp: Date.now()
+            });
+
             await sendMessage({
                 type: 'user_message',
                 content: messageInput.trim()
             });
+
+            console.log('✅ Message sent successfully');
             setMessageInput('');
         } catch (error) {
-            console.error('Failed to send message:', error);
+            console.error('❌ Failed to send message:', error);
             // Remove the user message if sending failed
             setUserMessages(prev => prev.filter(msg => msg.id !== userMessage.id));
         } finally {
@@ -152,13 +147,7 @@ function App() {
     // Handle suggested prompt selection
     const handleSuggestedPrompt = useCallback((prompt: SuggestedPrompt) => {
         setMessageInput(prompt.fullPrompt);
-        // Resize textarea after setting content
-        setTimeout(() => {
-            if (textareaRef.current) {
-                resizeTextarea(textareaRef.current);
-            }
-        }, 0);
-    }, [resizeTextarea]);
+    }, []);
 
     // Handle reset - clear all messages and start new conversation
     const handleReset = useCallback(() => {
@@ -306,7 +295,6 @@ function App() {
                 {/* Input Area */}
                 <div className="flex gap-2 items-end">
                     <textarea
-                        ref={textareaRef}
                         value={messageInput}
                         onChange={(e) => setMessageInput(e.target.value)}
                         onKeyPress={handleKeyPress}
@@ -321,7 +309,8 @@ function App() {
                         }}
                         onInput={(e) => {
                             const target = e.target as HTMLTextAreaElement;
-                            resizeTextarea(target);
+                            target.style.height = 'auto';
+                            target.style.height = Math.min(target.scrollHeight, 128) + 'px';
                         }}
                     />
                     <button
