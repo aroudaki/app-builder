@@ -1,5 +1,7 @@
 # LangGraph Migration Plan
 
+> **Note:** This migration plan is for a pre-release development system with no production users or deployed services. Therefore, it focuses on a complete system replacement approach rather than maintaining backward compatibility or implementing gradual rollout strategies.
+
 ## Table of Contents
 
 1. [Executive Summary](#executive-summary)
@@ -36,15 +38,16 @@ This document outlines the migration from the current custom pipeline orchestrat
 - Built-in debugging and observability
 - Easier testing and maintenance
 
-**🔄 Maintained Compatibility:**
-- Full AG-UI protocol compatibility
-- Existing Docker container integration
-- Current WebSocket communication
-- All existing tools and features
+**🔄 System Replacement:**
+- Complete replacement of existing pipeline system
+- Maintains AG-UI protocol compatibility
+- Preserves Docker container integration
+- Keeps current WebSocket communication
+- Retains all existing tools and features
 
 ### Migration Approach
 
-The migration follows a **6-phase incremental approach** that maintains system stability while adding LangGraph capabilities. Each phase is independently testable and can be rolled back if needed.
+The migration follows a **6-phase direct replacement approach** for this pre-release system. Since there are no production users or deployed services, we can implement a complete system replacement without backward compatibility concerns. Each phase builds upon the previous phase, leading to a complete replacement of the old pipeline system.
 
 **Model Configuration:** The system will use **GPT-4.1** as the primary LLM, configured through your existing Azure OpenAI deployment. GPT-4.1 provides enhanced reasoning capabilities and better code generation compared to earlier models, making it ideal for the complex multi-agent workflows in this application.
 
@@ -844,8 +847,6 @@ npm install zod  # For tool schema definitions
   AOAI_o3_DEPLOYMENT_NAME=o3
   AOAI_o3_VERSION=2025-01-01-preview
   ```
-- Create migration-specific environment variables
-- Set up feature flags for gradual rollout
 
 **1.5 Basic Graph Structure**
 - Create `apps/server/src/langgraph/graphs/` directory
@@ -1186,26 +1187,20 @@ export async function handleLangGraphMessage(
 **5.2 AG-UI Event Compatibility**
 - Ensure all existing AG-UI events are supported
 - Implement event timing and ordering
-- Add backward compatibility for client expectations
+- Maintain AG-UI protocol format for seamless client integration
 
 **5.3 Docker Container Integration**
 - Test LangGraph with existing Docker containers
 - Ensure tool integration works correctly
 - Validate container lifecycle management
 
-**5.4 Feature Flag Implementation**
-- Add feature flag for LangGraph vs old system
-- Implement gradual rollout capabilities
-- Create monitoring and rollback procedures
-
-**5.5 Performance Optimization**
+**5.4 Performance Optimization**
 - Optimize graph execution performance
 - Implement caching where appropriate
 - Add performance monitoring and alerting
 
-**5.6 Comprehensive Testing**
+**5.5 Comprehensive Testing**
 - End-to-end workflow testing
-- Compatibility testing with existing clients
 - Load testing and performance validation
 - Error handling and recovery testing
 
@@ -1213,16 +1208,14 @@ export async function handleLangGraphMessage(
 - ✅ WebSocket integration complete
 - ✅ Full AG-UI compatibility maintained
 - ✅ Docker integration validated
-- ✅ Feature flags implemented
 - ✅ Performance optimized
 - ✅ Comprehensive test coverage
 
 **Testing:**
 - Full system integration tests
-- Backward compatibility tests
 - Performance and load tests
 - Error handling stress tests
-- Client compatibility validation
+- Protocol compatibility validation
 
 ---
 
@@ -1486,10 +1479,10 @@ function handleBuildFailure(state: AppBuilderStateType): string {
 
 ### Medium-Risk Areas
 
-**5. AG-UI Compatibility**
-- **Risk:** LangGraph event emission may break client compatibility
-- **Mitigation:** Comprehensive event mapping and backward compatibility testing
-- **Testing:** Client integration tests and protocol validation
+**5. AG-UI Protocol Compatibility**
+- **Risk:** LangGraph event emission may break client integration
+- **Mitigation:** Comprehensive event mapping and protocol format validation
+- **Testing:** Client integration tests and protocol compliance validation
 
 **6. Docker Container Integration**
 - **Risk:** Tool calling may interfere with container management
@@ -2252,4 +2245,4 @@ The migration will enable:
 - **Improved observability and debugging** capabilities
 - **Future extensibility** for complex agent interaction patterns
 
-By following this plan, the system will evolve from a simple sequential pipeline to a sophisticated AI agent orchestration platform while maintaining full backward compatibility with existing clients and infrastructure.
+By following this plan, the system will be completely transformed from a simple sequential pipeline to a sophisticated AI agent orchestration platform with full AG-UI protocol compatibility.
