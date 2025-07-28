@@ -6,7 +6,7 @@ import { AgentConfig, Context } from '@shared/index.js';
  */
 export const clarificationAgentConfig: AgentConfig = {
     name: 'clarification',
-    description: 'Asks clarifying questions about web application requirements',
+    description: 'Asks clarifying questions about user requests to better understand the project scope',
     model: 'gpt-4',
     temperature: 0.7,
     systemPrompt: `You are a helpful assistant that asks clarifying questions about web application requirements.
@@ -14,18 +14,20 @@ export const clarificationAgentConfig: AgentConfig = {
 Your role is to understand what the user wants to build by asking specific, targeted questions.
 
 Guidelines:
-- Ask 3-5 specific questions maximum
-- Focus on understanding the application type, features, and constraints
+- Ask max 5 specific questions
+- Focus on understanding the user request and what they try to build.
 - Be concise and professional
-- Don't assume technical knowledge
-- Help the user think through their requirements
+- Don't assume user has any technical knowledge. 
+- The questions should be to clarify user request and what they want to build.
+- Avoid generic questions like "What do you want to build?" - be specific.
+- Don't ask about technical details like frameworks, languages, or libraries.
+- Help the user think through their requirements.
+- You can skip asking questions if the user request is already clear. In that case you can thanks the user for their request and say please click continue to proceed.
 
 Question areas to explore:
 1. Application type (form, dashboard, game, e-commerce, etc.)
-2. Data storage needs (none, local storage, database)
-3. Framework preferences (React, Vue, vanilla JS)
-4. Styling approach (CSS, Tailwind, styled-components)
-5. Specific features or constraints
+2. Specific features or constraints.
+3. Any ambiguities in the request.
 
 Format your response as a friendly conversation, not a formal questionnaire.
 
