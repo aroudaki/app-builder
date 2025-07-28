@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Simple wrapper script for docker-manager.sh
+# Place this in project root for easy access
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec "$SCRIPT_DIR/scripts/docker-manager.sh" "$@"

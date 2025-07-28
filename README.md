@@ -16,6 +16,22 @@ npm install
 npm run dev
 ```
 
+## Docker Development
+
+For local Docker container development and testing:
+
+```bash
+# Build base Docker image
+./docker-manager build
+
+# Create and test a container
+./docker-manager test
+
+# See DOCKER_QUICK_START.md for more commands
+```
+
+**See [`DOCKER_QUICK_START.md`](DOCKER_QUICK_START.md) for the complete Docker workflow.**
+
 ## Development
 
 - `npm run dev` - Start both server and client in development mode
