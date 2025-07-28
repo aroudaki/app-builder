@@ -7,7 +7,6 @@
 
 export {
     AppBuilderState,
-    AppBuilderStateType,
     createInitialState,
     generateId,
     createAGUIEvent,
@@ -15,6 +14,16 @@ export {
     aguiContextToState,
     type AGUIEvent
 } from './state.js';
+export type { AppBuilderStateType } from './state.js';
+
+// Graph exports - skeleton implementations for Phase 1
+export {
+    buildSkeletonInitialPipelineGraph,
+    buildSkeletonModificationPipelineGraph,
+    testGraphExecution,
+    placeholderNode,
+    basicRouter
+} from './graphs/index.js';
 
 // Graph exports will be added in Phase 4
 // export { buildInitialPipelineGraph, buildModificationPipelineGraph } from './graphs/index.js';
