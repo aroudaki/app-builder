@@ -59,7 +59,8 @@ npm run test:browser    # Browser Automation tool tests
 **See [`apps/server/TESTING.md`](apps/server/TESTING.md) for detailed testing documentation.**
 
 Tests run automatically:
-- Before every Git commit (pre-commit hook)
+- Before every Git commit (pre-commit build validation)
+- Manually with `npm run test` (full test suite)
 - On GitHub Actions CI/CD
 - After code builds (postbuild hook)
 

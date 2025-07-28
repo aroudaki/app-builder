@@ -12,6 +12,7 @@
         "dev:server": "cd apps/server && npm run dev",
         "dev:client": "cd apps/client && npm run dev",
         "test": "turbo run test",
+        "test:full": "cd apps/server && npm run test:ci",
         "test:e2e": "turbo run test:e2e",
         "build": "turbo run build",
         "build:server": "cd apps/server && npm run build",

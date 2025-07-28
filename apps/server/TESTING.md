@@ -90,12 +90,14 @@ When tests run successfully, you'll see:
 ## 🔒 Automated Testing
 
 ### Pre-commit Hooks
-Tests automatically run before every Git commit:
-```bash
-# This happens automatically on git commit
+Build validation runs before every Git commit:
+
+```
 🔍 Running pre-commit checks...
-🧪 Running build and test workflow...
-✅ All tests passed! Proceeding with commit.
+🔨 Building server...
+🔨 Building client...
+✅ All builds passed! Proceeding with commit.
+💡 Run 'npm run test' manually to run full test suite if needed.
 ```
 
 ### GitHub Actions CI/CD
@@ -115,7 +117,8 @@ Tests run automatically:
 ### After Making Code Changes:
 1. **Build and test** - `npm test`
 2. **Verify everything works** - `npm run test:ci`
-3. **Commit** - Tests run automatically
+3. **Commit** - Builds run automatically for fast validation
+4. **Manual Testing** - Run full test suite with `npm run test` as needed
 4. **Push** - CI runs tests in cloud
 
 ### For Local Development:
