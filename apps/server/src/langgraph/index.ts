@@ -34,5 +34,15 @@ export {
 // Tool exports will be added in Phase 3
 // export { toolNode, appContainerTool, browserTool, appCompletedTool } from './tools/index.js';
 
-// LLM exports will be added in Phase 2
-// export { createLLM, createGPT41LLM, createO3LLM } from './llm.js';
+// LLM exports
+export {
+    createLLM,
+    createGPT41LLM,
+    createO3LLM,
+    createLLMForAgent,
+    testLLMConnection,
+    getAvailableModelTypes,
+    isModelAvailable,
+    type ModelType,
+    type LLMConfig
+} from './llm.js';
