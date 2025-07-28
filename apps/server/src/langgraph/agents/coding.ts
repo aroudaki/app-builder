@@ -39,7 +39,7 @@ export async function codingAgent(
         // Note: Could switch to 'o3' model for complex coding tasks
         const llm = createLLMForAgent('coding', {
             temperature: getAgentTemperature('coding'),
-            streaming: false
+            streaming: true
         });
 
         // Get prompt template and format with variables
@@ -51,10 +51,46 @@ export async function codingAgent(
             conversationHistory: conversationHistory || 'No previous conversation'
         });
 
-        // Execute LLM call
-        console.log("🧠 Calling LLM for code generation...");
-        const response = await llm.invoke(formattedPrompt);
-        const responseContent = response.content?.toString() || '';
+        // Execute LLM call with streaming
+        console.log("🧠 Calling LLM for code generation with streaming...");
+
+        // Create message ID for tracking
+        const messageId = generateId();
+        const events: any[] = [];
+
+        // Start message event
+        events.push(
+            createAGUIEvent("TEXT_MESSAGE_START", state.conversationId, {
+                messageId,
+                role: "assistant"
+            })
+        );
+
+        let fullResponse = "";
+
+        // Stream the response
+        const stream = await llm.stream(formattedPrompt);
+        for await (const chunk of stream) {
+            const delta = chunk.content?.toString() || "";
+            if (delta) {
+                fullResponse += delta;
+
+                // Content event for each chunk
+                events.push(
+                    createAGUIEvent("TEXT_MESSAGE_CONTENT", state.conversationId, {
+                        messageId,
+                        delta
+                    })
+                );
+            }
+        }
+
+        // End message event
+        events.push(
+            createAGUIEvent("TEXT_MESSAGE_END", state.conversationId, {
+                messageId
+            })
+        );
 
         // TODO: When tool integration is complete (Phase 3), this will be replaced with:
         // 1. Real tool calls to app_container for file operations
@@ -82,30 +118,34 @@ export async function codingAgent(
         ];
 
         // Apply validation logic from existing configuration
-        const isValid = validateCodingOutput(responseContent, mockToolExecutions);
+        const isValid = validateCodingOutput(fullResponse, mockToolExecutions);
         if (!isValid) {
-            console.warn("⚠️ Coding response validation failed, but continuing...");
-        }
+            console.warn("⚠️ Coding response validation failed, retrying...");
 
-        // Emit AG-UI events for real-time streaming
-        const events = [
-            createAGUIEvent("TEXT_MESSAGE_START", state.conversationId, {
-                messageId: generateId(),
-                role: "assistant"
-            }),
-            createAGUIEvent("TEXT_MESSAGE_CONTENT", state.conversationId, {
-                messageId: generateId(),
-                delta: responseContent
-            }),
-            createAGUIEvent("TEXT_MESSAGE_END", state.conversationId, {
-                messageId: generateId()
-            })
-        ];
+            // Implement retry logic
+            if ((state.retryCount || 0) < 3) {
+                return {
+                    currentAgent: "coding",
+                    retryCount: (state.retryCount || 0) + 1,
+                    lastError: {
+                        agent: "coding",
+                        error: "Validation failed",
+                        timestamp: new Date().toISOString()
+                    },
+                    aguiEvents: [
+                        createAGUIEvent("ERROR", state.conversationId, {
+                            error: "Response validation failed, retrying...",
+                            retryCount: (state.retryCount || 0) + 1
+                        })
+                    ]
+                };
+            }
+        }
 
         console.log("✅ Coding agent completed successfully");
 
         return {
-            messages: [new AIMessage(responseContent)],
+            messages: [new AIMessage(fullResponse)],
             currentAgent: "coding",
             lastToolExecution: mockToolExecutions,
             completionState: {
@@ -120,22 +160,57 @@ export async function codingAgent(
                 'src/components/': '// Generated components',
                 'package.json': '// Updated dependencies'
             },
-            aguiEvents: events
+            aguiEvents: events,
+            retryCount: 0 // Reset retry count on success
         };
 
     } catch (error) {
-        console.error("❌ Coding agent failed:", error);
+        console.error("❌ Error in coding agent:", error);
 
-        // Return error state with fallback message
+        // Implement retry logic
+        if ((state.retryCount || 0) < 3) {
+            return {
+                currentAgent: "coding",
+                retryCount: (state.retryCount || 0) + 1,
+                lastError: {
+                    agent: "coding",
+                    error: error instanceof Error ? error.message : String(error),
+                    timestamp: new Date().toISOString()
+                },
+                aguiEvents: [
+                    createAGUIEvent("ERROR", state.conversationId, {
+                        error: error instanceof Error ? error.message : String(error),
+                        retryCount: (state.retryCount || 0) + 1
+                    })
+                ]
+            };
+        }
+
+        // Final fallback after max retries
+        const fallbackCode = "I'll create a basic React application with TypeScript. This includes essential components and structure for a functional web application.";
+
         return {
-            messages: [new AIMessage("I encountered an issue while generating the code. Let me try a different approach.")],
+            messages: [new AIMessage(fallbackCode)],
             currentAgent: "coding",
-            lastError: {
-                agent: "coding",
-                error: error instanceof Error ? error.message : String(error),
-                timestamp: new Date().toISOString()
+            lastToolExecution: [],
+            completionState: {
+                explorationComplete: true,
+                buildSuccessful: false,
+                devServerStarted: false,
+                requirementsMet: false,
+                isComplete: false
             },
-            retryCount: (state.retryCount || 0) + 1
+            generatedCode: {
+                'src/App.tsx': '// Basic React application structure',
+                'package.json': '// Basic dependencies'
+            },
+            aguiEvents: [
+                createAGUIEvent("ERROR", state.conversationId, {
+                    error: "Max retries exceeded, using fallback code generation",
+                    fallback: true
+                })
+            ],
+            retryCount: 0 // Reset for next operation
         };
     }
 }

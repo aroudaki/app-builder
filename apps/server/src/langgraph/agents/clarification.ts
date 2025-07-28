@@ -43,53 +43,133 @@ export async function clarificationAgent(
             .map(msg => `${msg._getType()}: ${msg.content}`)
             .join('\n');
 
-        // Create LLM instance with agent-specific configuration
+        // Create LLM with proper configuration  
         const llm = createLLMForAgent('clarification', {
             temperature: getAgentTemperature('clarification'),
-            streaming: false // For now, implement without streaming
+            streaming: true // Enable streaming for real-time responses
         });
+        try {
+            // Get prompt template and format with variables
+            const promptTemplate = getPromptTemplate('clarification');
+            const formattedPrompt = await promptTemplate.format({
+                userInput,
+                conversationHistory: conversationHistory || 'No previous conversation'
+            });
 
-        // Get prompt template and format with variables
-        const promptTemplate = getPromptTemplate('clarification');
-        const formattedPrompt = await promptTemplate.format({
-            userInput,
-            conversationHistory: conversationHistory || 'No previous conversation'
-        });
+            // Execute LLM call with streaming
+            console.log("🧠 Calling LLM for clarification questions with streaming...");
 
-        // Execute LLM call
-        console.log("🧠 Calling LLM for clarification questions...");
-        const response = await llm.invoke(formattedPrompt);
+            // Create message ID for tracking
+            const messageId = generateId();
+            const events: any[] = [];
 
-        // Apply validation logic from existing configuration
-        const isValid = validateClarificationOutput(response.content?.toString() || '');
-        if (!isValid) {
-            console.warn("⚠️ Clarification response validation failed, retrying...");
-            // For now, continue with the response even if validation fails
-            // In production, you might want to implement retry logic
+            // Start message event
+            events.push(
+                createAGUIEvent("TEXT_MESSAGE_START", state.conversationId, {
+                    messageId,
+                    role: "assistant"
+                })
+            );
+
+            let fullResponse = "";
+
+            // Stream the response
+            const stream = await llm.stream(formattedPrompt);
+            for await (const chunk of stream) {
+                const delta = chunk.content?.toString() || "";
+                if (delta) {
+                    fullResponse += delta;
+
+                    // Content event for each chunk
+                    events.push(
+                        createAGUIEvent("TEXT_MESSAGE_CONTENT", state.conversationId, {
+                            messageId,
+                            delta
+                        })
+                    );
+                }
+            }
+
+            // End message event
+            events.push(
+                createAGUIEvent("TEXT_MESSAGE_END", state.conversationId, {
+                    messageId
+                })
+            );
+
+            // Apply validation logic from existing configuration
+            const isValid = validateClarificationOutput(fullResponse);
+            if (!isValid) {
+                console.warn("⚠️ Clarification response validation failed, retrying...");
+
+                // Implement retry logic
+                if ((state.retryCount || 0) < 3) {
+                    return {
+                        currentAgent: "clarification",
+                        retryCount: (state.retryCount || 0) + 1,
+                        lastError: {
+                            agent: "clarification",
+                            error: "Validation failed",
+                            timestamp: new Date().toISOString()
+                        },
+                        aguiEvents: [
+                            createAGUIEvent("ERROR", state.conversationId, {
+                                error: "Response validation failed, retrying...",
+                                retryCount: (state.retryCount || 0) + 1
+                            })
+                        ]
+                    };
+                }
+            }
+
+            console.log("✅ Clarification agent completed successfully");
+
+            return {
+                messages: [new AIMessage(fullResponse)],
+                currentAgent: "clarification",
+                aguiEvents: events,
+                retryCount: 0 // Reset retry count on success
+            };
+
+        } catch (error) {
+            console.error("❌ Clarification agent failed:", error);
+
+            // Implement retry logic for errors
+            if ((state.retryCount || 0) < 3) {
+                const retryEvent = createAGUIEvent("ERROR", state.conversationId, {
+                    error: `Attempt ${(state.retryCount || 0) + 1}/3 failed: ${error instanceof Error ? error.message : String(error)}`,
+                    retryCount: (state.retryCount || 0) + 1
+                });
+
+                return {
+                    currentAgent: "clarification",
+                    retryCount: (state.retryCount || 0) + 1,
+                    lastError: {
+                        agent: "clarification",
+                        error: error instanceof Error ? error.message : String(error),
+                        timestamp: new Date().toISOString()
+                    },
+                    aguiEvents: [retryEvent]
+                };
+            }
+
+            // Max retries exceeded - return fallback response
+            return {
+                messages: [new AIMessage("I'd like to understand your project better. Could you provide more details about what you'd like to build?")],
+                currentAgent: "clarification",
+                lastError: {
+                    agent: "clarification",
+                    error: `Max retries exceeded: ${error instanceof Error ? error.message : String(error)}`,
+                    timestamp: new Date().toISOString()
+                },
+                aguiEvents: [
+                    createAGUIEvent("ERROR", state.conversationId, {
+                        error: `Max retries exceeded: ${error instanceof Error ? error.message : String(error)}`,
+                        retryCount: state.retryCount || 0
+                    })
+                ]
+            };
         }
-
-        // Emit AG-UI events for real-time streaming
-        const events = [
-            createAGUIEvent("TEXT_MESSAGE_START", state.conversationId, {
-                messageId: generateId(),
-                role: "assistant"
-            }),
-            createAGUIEvent("TEXT_MESSAGE_CONTENT", state.conversationId, {
-                messageId: generateId(),
-                delta: response.content?.toString() || ""
-            }),
-            createAGUIEvent("TEXT_MESSAGE_END", state.conversationId, {
-                messageId: generateId()
-            })
-        ];
-
-        console.log("✅ Clarification agent completed successfully");
-
-        return {
-            messages: [new AIMessage(response.content?.toString() || "I need more information to help you better.")],
-            currentAgent: "clarification",
-            aguiEvents: events
-        };
 
     } catch (error) {
         console.error("❌ Clarification agent failed:", error);

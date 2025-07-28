@@ -949,10 +949,8 @@ The agent should never consider the task complete until:
 - Add proper message formatting and timing
 - Handle streaming errors and interruptions
 
-**2.5 Response Quality**
-- Add response validation and quality checks
-- Implement retry logic for poor responses
-- Add response caching for development
+**2.5 Implement retry**
+- Implement retry logic for error cases. if an error happens server side, client should allow user to retry the same prompt 
 
 **Deliverables:**
 - ✅ All agents using real LLM responses

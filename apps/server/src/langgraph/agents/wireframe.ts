@@ -30,53 +30,131 @@ export async function wireframeAgent(
             .map(msg => `${msg._getType()}: ${msg.content}`)
             .join('\n');
 
-        // Create LLM instance with agent-specific configuration
+        // Create LLM with proper configuration
         const llm = createLLMForAgent('wireframe', {
             temperature: getAgentTemperature('wireframe'),
-            streaming: false
-        });
+            streaming: true // Enable streaming for real-time responses
+        }); try {
+            // Get prompt template and format with variables
+            const promptTemplate = getPromptTemplate('wireframe');
+            const formattedPrompt = await promptTemplate.format({
+                requirements,
+                conversationHistory: conversationHistory || 'No previous conversation'
+            });
 
-        // Get prompt template and format with variables
-        const promptTemplate = getPromptTemplate('wireframe');
-        const formattedPrompt = await promptTemplate.format({
-            requirements,
-            conversationHistory: conversationHistory || 'No previous conversation'
-        });
+            // Execute LLM call with streaming
+            console.log("🧠 Calling LLM for wireframe design with streaming...");
 
-        // Execute LLM call
-        console.log("🧠 Calling LLM for wireframe design...");
-        const response = await llm.invoke(formattedPrompt);
-        const responseContent = response.content?.toString() || '';
+            // Create message ID for tracking
+            const messageId = generateId();
+            const events: any[] = [];
 
-        // Apply validation logic from existing configuration
-        const isValid = validateWireframeOutput(responseContent);
-        if (!isValid) {
-            console.warn("⚠️ Wireframe response validation failed, but continuing...");
+            // Start message event
+            events.push(
+                createAGUIEvent("TEXT_MESSAGE_START", state.conversationId, {
+                    messageId,
+                    role: "assistant"
+                })
+            );
+
+            let fullResponse = "";
+
+            // Stream the response
+            const stream = await llm.stream(formattedPrompt);
+            for await (const chunk of stream) {
+                const delta = chunk.content?.toString() || "";
+                if (delta) {
+                    fullResponse += delta;
+
+                    // Content event for each chunk
+                    events.push(
+                        createAGUIEvent("TEXT_MESSAGE_CONTENT", state.conversationId, {
+                            messageId,
+                            delta
+                        })
+                    );
+                }
+            }
+
+            // End message event
+            events.push(
+                createAGUIEvent("TEXT_MESSAGE_END", state.conversationId, {
+                    messageId
+                })
+            );
+
+            // Apply validation logic from existing configuration
+            const isValid = validateWireframeOutput(fullResponse);
+            if (!isValid) {
+                console.warn("⚠️ Wireframe response validation failed, retrying...");
+
+                // Implement retry logic
+                if ((state.retryCount || 0) < 3) {
+                    return {
+                        currentAgent: "wireframe",
+                        retryCount: (state.retryCount || 0) + 1,
+                        lastError: {
+                            agent: "wireframe",
+                            error: "Validation failed",
+                            timestamp: new Date().toISOString()
+                        },
+                        aguiEvents: [
+                            createAGUIEvent("ERROR", state.conversationId, {
+                                error: "Response validation failed, retrying...",
+                                retryCount: (state.retryCount || 0) + 1
+                            })
+                        ]
+                    };
+                }
+            }
+
+            console.log("✅ Wireframe agent completed successfully");
+
+            return {
+                messages: [new AIMessage(fullResponse)],
+                currentAgent: "wireframe",
+                wireframe: fullResponse, // Store wireframe for coding agent
+                aguiEvents: events,
+                retryCount: 0 // Reset retry count on success
+            };
+        } catch (error) {
+            console.error("❌ Error in wireframe agent:", error);
+
+            // Implement retry logic
+            if ((state.retryCount || 0) < 3) {
+                return {
+                    currentAgent: "wireframe",
+                    retryCount: (state.retryCount || 0) + 1,
+                    lastError: {
+                        agent: "wireframe",
+                        error: error instanceof Error ? error.message : String(error),
+                        timestamp: new Date().toISOString()
+                    },
+                    aguiEvents: [
+                        createAGUIEvent("ERROR", state.conversationId, {
+                            error: error instanceof Error ? error.message : String(error),
+                            retryCount: (state.retryCount || 0) + 1
+                        })
+                    ]
+                };
+            }
+
+            // Final fallback after max retries
+            const fallbackWireframe = "I'll create a basic wireframe with header, main content area, and footer sections. This provides a simple starting structure for your application.";
+
+            return {
+                messages: [new AIMessage(fallbackWireframe)],
+                currentAgent: "wireframe",
+                wireframe: fallbackWireframe,
+                aguiEvents: [
+                    createAGUIEvent("ERROR", state.conversationId, {
+                        error: "Max retries exceeded, using fallback wireframe",
+                        fallback: true
+                    })
+                ],
+                retryCount: 0 // Reset for next operation
+            };
         }
-
-        // Emit AG-UI events for real-time streaming
-        const events = [
-            createAGUIEvent("TEXT_MESSAGE_START", state.conversationId, {
-                messageId: generateId(),
-                role: "assistant"
-            }),
-            createAGUIEvent("TEXT_MESSAGE_CONTENT", state.conversationId, {
-                messageId: generateId(),
-                delta: responseContent
-            }),
-            createAGUIEvent("TEXT_MESSAGE_END", state.conversationId, {
-                messageId: generateId()
-            })
-        ];
-
-        console.log("✅ Wireframe agent completed successfully");
-
-        return {
-            messages: [new AIMessage(responseContent)],
-            currentAgent: "wireframe",
-            wireframe: responseContent, // Store wireframe for coding agent
-            aguiEvents: events
-        };
 
     } catch (error) {
         console.error("❌ Wireframe agent failed:", error);

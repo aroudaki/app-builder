@@ -38,54 +38,154 @@ export async function requirementsAgent(
             .map(msg => `${msg._getType()}: ${msg.content}`)
             .join('\n');
 
-        // Create LLM instance with agent-specific configuration
+        // Create LLM with proper configuration
         const llm = createLLMForAgent('requirements', {
             temperature: getAgentTemperature('requirements'),
-            streaming: false
-        });
+            streaming: true // Enable streaming for real-time responses
+        }); try {
+            // Get prompt template and format with variables
+            const promptTemplate = getPromptTemplate('requirements');
+            const formattedPrompt = await promptTemplate.format({
+                userInput,
+                clarification,
+                conversationHistory: conversationHistory || 'No previous conversation'
+            });
 
-        // Get prompt template and format with variables
-        const promptTemplate = getPromptTemplate('requirements');
-        const formattedPrompt = await promptTemplate.format({
-            userInput,
-            clarification,
-            conversationHistory: conversationHistory || 'No previous conversation'
-        });
+            // Execute LLM call with streaming
+            console.log("🧠 Calling LLM for requirements analysis with streaming...");
 
-        // Execute LLM call
-        console.log("🧠 Calling LLM for requirements analysis...");
-        const response = await llm.invoke(formattedPrompt);
-        const responseContent = response.content?.toString() || '';
+            // Create message ID for tracking
+            const messageId = generateId();
+            const events: any[] = [];
 
-        // Apply validation logic from existing configuration
-        const isValid = validateRequirementsOutput(responseContent);
-        if (!isValid) {
-            console.warn("⚠️ Requirements response validation failed, but continuing...");
+            // Start message event
+            events.push(
+                createAGUIEvent("TEXT_MESSAGE_START", state.conversationId, {
+                    messageId,
+                    role: "assistant"
+                })
+            );
+
+            let fullResponse = "";
+
+            // Stream the response
+            const stream = await llm.stream(formattedPrompt);
+            for await (const chunk of stream) {
+                const delta = chunk.content?.toString() || "";
+                if (delta) {
+                    fullResponse += delta;
+
+                    // Content event for each chunk
+                    events.push(
+                        createAGUIEvent("TEXT_MESSAGE_CONTENT", state.conversationId, {
+                            messageId,
+                            delta
+                        })
+                    );
+                }
+            }
+
+            // End message event
+            events.push(
+                createAGUIEvent("TEXT_MESSAGE_END", state.conversationId, {
+                    messageId
+                })
+            );
+
+            // Apply validation logic from existing configuration
+            const isValid = validateRequirementsOutput(fullResponse);
+            if (!isValid) {
+                console.warn("⚠️ Requirements response validation failed, retrying...");
+
+                // Implement retry logic
+                if ((state.retryCount || 0) < 3) {
+                    return {
+                        currentAgent: "requirements",
+                        retryCount: (state.retryCount || 0) + 1,
+                        lastError: {
+                            agent: "requirements",
+                            error: "Validation failed",
+                            timestamp: new Date().toISOString()
+                        },
+                        aguiEvents: [
+                            createAGUIEvent("ERROR", state.conversationId, {
+                                error: "Response validation failed, retrying...",
+                                retryCount: (state.retryCount || 0) + 1
+                            })
+                        ]
+                    };
+                }
+            }
+
+            console.log("✅ Requirements agent completed successfully");
+
+            return {
+                messages: [new AIMessage(fullResponse)],
+                currentAgent: "requirements",
+                requirements: fullResponse, // Store requirements for future agents
+                aguiEvents: events,
+                retryCount: 0 // Reset retry count on success
+            };
+
+        } catch (error) {
+            console.error("❌ Requirements agent failed:", error);
+
+            // Implement retry logic for errors
+            if ((state.retryCount || 0) < 3) {
+                const retryEvent = createAGUIEvent("ERROR", state.conversationId, {
+                    error: `Attempt ${(state.retryCount || 0) + 1}/3 failed: ${error instanceof Error ? error.message : String(error)}`,
+                    retryCount: (state.retryCount || 0) + 1
+                });
+
+                return {
+                    currentAgent: "requirements",
+                    retryCount: (state.retryCount || 0) + 1,
+                    lastError: {
+                        agent: "requirements",
+                        error: error instanceof Error ? error.message : String(error),
+                        timestamp: new Date().toISOString()
+                    },
+                    aguiEvents: [retryEvent]
+                };
+            }
+
+            // Max retries exceeded - return fallback response
+            const fallbackRequirements = `## Application Overview
+Basic web application to meet user needs.
+
+## Core Features
+- User-friendly interface
+- Essential functionality
+- Responsive design
+
+## Technical Requirements
+- Frontend: React + TypeScript + Vite + Tailwind CSS + Shadcn/ui
+- Styling: Responsive design with mobile-first approach
+- State Management: React hooks (useState, useEffect)
+- Data Storage: localStorage for client-side persistence
+
+## Success Criteria
+- Application loads successfully
+- Core functionality works as intended
+- Responsive design on all devices`;
+
+            return {
+                messages: [new AIMessage(fallbackRequirements)],
+                currentAgent: "requirements",
+                requirements: fallbackRequirements,
+                lastError: {
+                    agent: "requirements",
+                    error: `Max retries exceeded: ${error instanceof Error ? error.message : String(error)}`,
+                    timestamp: new Date().toISOString()
+                },
+                aguiEvents: [
+                    createAGUIEvent("ERROR", state.conversationId, {
+                        error: `Max retries exceeded: ${error instanceof Error ? error.message : String(error)}`,
+                        retryCount: state.retryCount || 0
+                    })
+                ]
+            };
         }
-
-        // Emit AG-UI events for real-time streaming
-        const events = [
-            createAGUIEvent("TEXT_MESSAGE_START", state.conversationId, {
-                messageId: generateId(),
-                role: "assistant"
-            }),
-            createAGUIEvent("TEXT_MESSAGE_CONTENT", state.conversationId, {
-                messageId: generateId(),
-                delta: responseContent
-            }),
-            createAGUIEvent("TEXT_MESSAGE_END", state.conversationId, {
-                messageId: generateId()
-            })
-        ];
-
-        console.log("✅ Requirements agent completed successfully");
-
-        return {
-            messages: [new AIMessage(responseContent)],
-            currentAgent: "requirements",
-            requirements: responseContent, // Store requirements for future agents
-            aguiEvents: events
-        };
 
     } catch (error) {
         console.error("❌ Requirements agent failed:", error);
