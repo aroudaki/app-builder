@@ -4,7 +4,7 @@
  * Generates complete web applications using Linux-like terminal commands.
  * This agent transforms requirements and wireframes into working code.
  * 
- * Note: This implementation is prepared for tool integration (Phase 3).
+ * Note: This implementation is prepared for tool integration.
  * Currently uses mock tool responses until tools are implemented.
  */
 
@@ -92,14 +92,14 @@ export async function codingAgent(
             })
         );
 
-        // TODO: When tool integration is complete (Phase 3), this will be replaced with:
+        // TODO: When tool integration is complete, this will be replaced with:
         // 1. Real tool calls to app_container for file operations
         // 2. Build verification with npm run build
         // 3. Dev server startup with npm run dev
         // 4. Completion validation with app_completed tool
 
         // For now, simulate successful development workflow
-        console.log("🔨 Simulating development workflow (tools will be implemented in Phase 3)");
+        console.log("🔨 Simulating development workflow (tools will be implemented next)");
 
         // Simulate tool executions for completion state
         const mockToolExecutions = [
@@ -248,7 +248,7 @@ function validateCodingOutput(response: string, toolExecutions?: any[]): boolean
 
 /**
  * Enhanced coding agent with tool integration support
- * This will be fully implemented when tools are available in Phase 3
+ * This will be fully implemented when tools are available
  */
 export async function codingAgentWithTools(
     state: AppBuilderStateType
@@ -260,6 +260,6 @@ export async function codingAgentWithTools(
     // - Build and test verification
     // - Completion detection with app_completed tool
 
-    console.log("🚧 Enhanced coding agent with tools - Coming in Phase 3");
+    console.log("🚧 Enhanced coding agent with tools - Coming next");
     return codingAgent(state);
 }

@@ -20,7 +20,7 @@ export class ContainerRuntimeFactory {
                     ContainerRuntimeFactory.instance = new DockerContainerManager();
                     break;
                 case 'azure':
-                    // TODO: Implement Azure Container Manager in Phase 2
+                    // TODO: Implement Azure Container Manager
                     throw new Error('Azure container runtime not yet implemented. Use CONTAINER_RUNTIME=docker for now.');
                 default:
                     throw new Error(`Unknown container runtime: ${runtime}. Supported runtimes: docker, azure`);

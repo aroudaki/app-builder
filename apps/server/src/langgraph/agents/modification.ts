@@ -105,13 +105,13 @@ export async function modificationAgent(
             })
         );
 
-        // TODO: When tool integration is complete (Phase 3), this will include:
+        // TODO: When tool integration is complete, this will include:
         // 1. Real tool calls to modify existing files
         // 2. Build verification after changes
         // 3. Testing to ensure modifications work
 
         // For now, simulate successful modification workflow
-        console.log("🔨 Simulating modification workflow (tools will be implemented in Phase 3)");
+        console.log("🔨 Simulating modification workflow (tools will be implemented next)");
 
         // Simulate modified code
         const modifiedCode = {

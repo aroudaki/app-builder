@@ -4,7 +4,7 @@ import { AppContainer } from "../../tools/appContainer.js";
 import { BrowserAutomation } from "../../tools/browser.js";
 
 /**
- * LangGraph Tool Definitions for Phase 3: Tool Migration
+ * LangGraph Tool Definitions
  * 
  * This file converts existing tools to LangGraph format with proper Zod schemas
  * for robust tool calling and execution validation.
@@ -17,7 +17,7 @@ export const appContainerTool = tool(
 
         try {
             // Use global container instance based on conversation context
-            // This will be improved in Phase 4 when we have proper state management
+            // This will be improved when we have enhanced state management
             const conversationId = "current"; // TODO: Get from state context
             const appContainer = new AppContainer(conversationId);
 

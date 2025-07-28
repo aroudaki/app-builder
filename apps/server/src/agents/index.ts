@@ -541,7 +541,7 @@ export class BaseAgent {
             const allResults = [...inspectionResults, ...modificationResults];
 
             // Install dependencies and start the development server
-            console.log('� DEBUG: Starting development server...');
+            console.log('🔄 DEBUG: Starting development server...');
             const devServerInfo = await this.appContainer.startDevServer();
             console.log('🐛 DEBUG: Dev server result:', {
                 exitCode: devServerInfo.exitCode,

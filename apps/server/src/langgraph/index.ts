@@ -16,25 +16,37 @@ export {
 } from './state.js';
 export type { AppBuilderStateType } from './state.js';
 
-// Graph exports - skeleton implementations for Phase 1
+// Complete LangGraph Implementation exports  
 export {
-    buildSkeletonInitialPipelineGraph,
-    buildSkeletonModificationPipelineGraph,
-    testGraphExecution,
+    buildInitialPipelineGraph,
+    buildModificationPipelineGraph,
+    buildMainGraph,
+    validateAllGraphs,
+    testAllGraphs,
+    runAppBuilder,
+    getGraph,
+    getGraphSystemStatus,
+    // Router functions
+    routeAfterClarification,
+    routeAfterAgentInitial,
+    routeAfterModification,
+    routeAfterCodingModification,
+    // Helper functions
+    getLastUserMessageInitial,
+    getLastUserMessageModification,
+    isDirectCodeChange,
+    isComplexModification,
+    extractModificationIntent,
+    createInitialState as createInitialGraphState,
+    createModificationState,
+    analyzeUserIntent,
+    executeAppBuilder,
+    // Legacy compatibility
     placeholderNode,
     basicRouter
 } from './graphs/index.js';
 
-// Graph exports will be added in Phase 4
-// export { buildInitialPipelineGraph, buildModificationPipelineGraph } from './graphs/index.js';
-
-// Agent exports will be added in Phase 2
-// export { clarificationAgent, requirementsAgent, wireframeAgent, codingAgent, modificationAgent } from './agents/index.js';
-
-// Tool exports will be added in Phase 3
-// export { toolNode, appContainerTool, browserTool, appCompletedTool } from './tools/index.js';
-
-// Tool exports - Phase 3 Implementation
+// Agent exports
 export {
     TrackedToolNode,
     toolNode,
