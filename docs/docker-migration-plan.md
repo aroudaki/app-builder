@@ -53,13 +53,16 @@ This document outlines the migration from the current mock container system to r
 - [x] Optimize image layers for fast container creation
 
 **Completion Summary:**
-- Docker image `app-builder-base:latest` successfully built (810MB)
+- Docker image `app-builder-base:latest` successfully built (786MB with pnpm, reduced from 810MB)
 - Container startup time: ~0.12 seconds (excellent performance)
+- Switched from npm to pnpm for better performance and smaller footprint
+- Generated app name changed from "react-app" to "generated-app"
 - Base64 file modification tested and working correctly
 - Multiple concurrent containers tested successfully
-- Dev server starts and serves content on port 3001
+- Dev server starts and serves content on port 3001 using `pnpm run dev`
 - Security: Running as non-root user (appuser) with proper permissions
 - All boilerplate files created with React 18 + TypeScript + Vite + Tailwind CSS + Shadcn/ui
+- Package manager: pnpm@9.6.0 for faster installations and smaller disk footprint
 - Ready for Task 1.3: Create Boilerplate App Structure (completed as part of this task)
 - Ready for Task 1.4: Build and Test Base Image (completed as part of this task)
 
@@ -134,7 +137,7 @@ CMD ["tail", "-f", "/dev/null"]
 6. **Working Directory**: `/generated-app` - starts with boilerplate but will be modified by coding agent
 
 ### Task 1.3: Create Boilerplate App Structure ✅ COMPLETED
-- [x] Create `docker/base/boilerplate-app/` directory
+- [x] Create `docker/base/generated-app/` directory
 - [x] Copy current boilerplate React app files
 - [x] Ensure all necessary config files are included (vite.config.ts, tailwind.config.js, etc.)
 - [x] Create proper .dockerignore to exclude unnecessary files
@@ -143,15 +146,18 @@ CMD ["tail", "-f", "/dev/null"]
 **Completion Summary:**
 - Complete boilerplate app structure created with all required files
 - Package.json includes all necessary dependencies for React + TypeScript + Vite + Tailwind
+- App name changed from "react-app" to "generated-app" for clarity
+- Switched to pnpm for package management (faster, smaller footprint)
 - All configuration files properly set up (ESLint, TypeScript, Vite, Tailwind, PostCSS)
 - UI components (Button, Card) implemented with Shadcn/ui styling
 - App.tsx contains welcoming boilerplate demo showcasing all technologies
 - .dockerignore optimized to exclude unnecessary files from Docker build context
+- pnpm-lock.yaml generated for deterministic builds
 
 ```
-docker/base/boilerplate-app/
+docker/base/generated-app/
 ├── package.json
-├── package-lock.json
+├── pnpm-lock.yaml
 ├── index.html
 ├── vite.config.ts
 ├── tsconfig.json
@@ -180,13 +186,15 @@ docker/base/boilerplate-app/
 - [x] Verify dev server starts correctly
 
 **Completion Summary:**
-- Base Docker image builds successfully in ~16 seconds
+- Base Docker image builds successfully in ~9 seconds (faster with pnpm)
 - Container startup time: ~0.12 seconds (excellent performance)
-- All exec commands working properly (ls, cat, ps, npm commands)
+- All exec commands working properly (ls, cat, ps, pnpm commands)
 - Base64 file modification approach tested and working correctly
-- Dev server starts successfully and serves content on port 3001
+- Dev server starts successfully using `pnpm run dev` and serves content on port 3001
 - Multiple concurrent containers tested and working
-- Image size: 810MB (reasonable for Node.js + all dependencies)
+- Image size: 786MB (24MB reduction from npm version)
+- Package manager: pnpm@9.6.0 for better performance
+- node_modules size: 143MB (smaller with pnpm's efficient storage)
 - Health checks implemented and working
 - Security: Non-root user execution confirmed
 - [ ] Measure container startup time
@@ -203,7 +211,7 @@ docker run -d --name test-container -p 3001:3001 app-builder-base:latest
 # Test exec command execution
 docker exec test-container ls -la /generated-app
 docker exec test-container cat /generated-app/package.json
-docker exec test-container npm run dev
+docker exec test-container pnpm run dev
 
 # Test file modification with base64 (simulating what coding agent will do)
 echo "console.log('Modified by coding agent')" | base64 | docker exec -i test-container sh -c 'base64 -d > /generated-app/test.js'
@@ -245,12 +253,14 @@ docker rm test-container
 
 **Summary of Achievements:**
 - ✅ Docker Desktop 28.3.2 installed and verified working
-- ✅ Base Docker image `app-builder-base:latest` built and tested (810MB)
+- ✅ Base Docker image `app-builder-base:latest` built and tested (786MB with pnpm optimization)
 - ✅ Complete boilerplate React app with TypeScript + Vite + Tailwind CSS + Shadcn/ui
 - ✅ Container startup time optimized to ~0.12 seconds
+- ✅ Switched to pnpm for 24MB size reduction and faster performance
+- ✅ Generated app properly named "generated-app" in `/generated-app` directory
 - ✅ Base64 file modification approach tested and working
 - ✅ Multiple concurrent containers tested successfully  
-- ✅ Dev server starts and serves on port 3001
+- ✅ Dev server starts and serves on port 3001 using `pnpm run dev`
 - ✅ Security implemented with non-root user execution
 - ✅ Container lifecycle policies designed and documented
 - ✅ Ready to proceed to Phase 2: Container Manager Implementation

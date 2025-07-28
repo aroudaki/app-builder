@@ -12,6 +12,9 @@ RUN apk add --no-cache \
     ncurses \
     && rm -rf /var/cache/apk/*
 
+# Install pnpm globally
+RUN npm install -g pnpm@9.6.0
+
 # Create app user for security
 RUN addgroup -g 1001 -S appuser && adduser -u 1001 -S appuser -G appuser
 
@@ -22,23 +25,20 @@ RUN chown -R appuser:appuser /generated-app
 # Switch to app user
 USER appuser
 
-# Copy boilerplate app files first (this layer will be cached)
+# Copy package files first (this layer will be cached)
 # Note: This is the starting point that will be modified based on user requests
-COPY --chown=appuser:appuser ./boilerplate-app/package*.json ./
+COPY --chown=appuser:appuser ./generated-app/package.json ./generated-app/pnpm-lock.yaml ./
 
-# Install dependencies (this layer will be cached when package.json doesn't change)
-RUN npm ci --only=production && \
-    npm cache clean --force
+# Install dependencies using pnpm (this layer will be cached when package files don't change)
+RUN pnpm install --frozen-lockfile && \
+    pnpm store prune
 
 # Copy the rest of the boilerplate app
 # This forms the base that the coding agent will modify
-COPY --chown=appuser:appuser ./boilerplate-app/ ./
+COPY --chown=appuser:appuser ./generated-app/ ./
 
 # Pre-build the app to cache build artifacts
-RUN npm run build || true
-
-# Ensure development dependencies are also installed
-RUN npm install
+RUN pnpm run build || true
 
 # Create directories that will be used during runtime
 RUN mkdir -p /generated-app/src /generated-app/public /generated-app/dist

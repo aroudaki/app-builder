@@ -11,3 +11,9 @@ coverage
 .cache
 .DS_Store
 *.log
+# pnpm specific
+.pnpm-store
+pnpm-debug.log
+# npm specific (legacy)
+npm-debug.log
+package-lock.json
