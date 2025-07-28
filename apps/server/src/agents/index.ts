@@ -3,6 +3,7 @@ import { generateId } from '../utils/events.js';
 import { SimpleCodeRunner } from '../tools/codeRunner.js';
 import { BrowserAutomation, BrowserTool } from '../tools/browser.js';
 import { AppContainer } from '../tools/appContainer.js';
+import { AppContainerRegistry } from '../services/AppContainerRegistry.js';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
@@ -103,11 +104,10 @@ export class BaseAgent {
         try {
             console.log(`🤖 Executing agent: ${this.config.name}`);
 
-            // Initialize AppContainer and BrowserAutomation for this conversation
-            this.appContainer = new AppContainer(context.conversationId);
-            await this.appContainer.initialize(); // Initialize Docker container
+            // Get or reuse existing AppContainer for this conversation
+            this.appContainer = await AppContainerRegistry.getContainer(context.conversationId);
             this.browserAutomation = new BrowserAutomation(context.conversationId);
-            console.log(`🐛 DEBUG: AppContainer initialized for conversation: ${context.conversationId}`);
+            console.log(`🐛 DEBUG: AppContainer ready for conversation: ${context.conversationId}`);
 
             // Check if agent should be skipped
             if (this.config.skipOn && this.config.skipOn(context)) {
@@ -225,7 +225,7 @@ export class BaseAgent {
         });
 
         // Update context with results
-        return this.updateContext(context, result);
+        return await this.updateContext(context, result);
     }
 
     /**
@@ -550,7 +550,15 @@ export class BaseAgent {
             });
 
             if (devServerInfo.exitCode === 0) {
-                const appUrl = 'http://localhost:3001'; // Fixed URL for generated apps
+                // Get the actual container URL instead of hardcoded localhost:3001
+                let appUrl = 'http://localhost:3001'; // Fallback
+
+                try {
+                    appUrl = await this.appContainer.getContainerUrl();
+                } catch (error) {
+                    console.warn('⚠️ Failed to get container URL, using fallback:', error);
+                }
+
                 console.log(`✅ Application is now running at: ${appUrl}`);
                 console.log('🐛 DEBUG: Returning success result with devServer info');
 
@@ -779,7 +787,7 @@ export class BaseAgent {
     /**
      * Update context with agent results
      */
-    protected updateContext(context: Context, result: any): Context {
+    protected async updateContext(context: Context, result: any): Promise<Context> {
         const updates: Partial<Context> = {
             state: {
                 ...context.state,
@@ -807,12 +815,14 @@ export class BaseAgent {
                         // First, check if devServer info is available
                         if (containerResult.devServer && containerResult.devServer.url) {
                             appUrl = containerResult.devServer.url;
-                        } else if (containerResult.commands) {
-                            // Fallback: look for npm run dev command output
-                            const devCommand = containerResult.commands.find((cmd: any) =>
-                                cmd.command.includes('npm run dev') && cmd.stdout && cmd.stdout.includes('localhost:3001')
-                            );
-                            if (devCommand) {
+                        } else {
+                            // Fallback: try to get URL from container
+                            try {
+                                if (this.appContainer) {
+                                    appUrl = await this.appContainer.getContainerUrl();
+                                }
+                            } catch (error) {
+                                console.warn('Failed to get container URL, using fallback');
                                 appUrl = 'http://localhost:3001';
                             }
                         }

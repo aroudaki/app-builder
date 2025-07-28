@@ -149,7 +149,7 @@ export class AppContainer {
             console.log(`✅ Development server started at: ${url}`);
 
             return {
-                stdout: `Development server started successfully!\nLocal: ${url}\nContainer: ${this.containerId}\n\n${startResult.stdout}`,
+                stdout: `Development server started successfully!\nContainer URL: ${url}\nContainer ID: ${this.containerId}\n\n${startResult.stdout}`,
                 stderr: startResult.stderr,
                 exitCode: 0
             };
@@ -166,24 +166,39 @@ export class AppContainer {
 
     /**
      * Get running development server info
-     * This uses the container runtime to check if the dev server is running
+     * This returns the actual container URL instead of a fixed port 
      */
-    getDevServerInfo(): { isRunning: boolean; url?: string; port?: number } {
-        if (!this.containerId) {
+    async getDevServerInfo(): Promise<{ isRunning: boolean; url?: string; port?: number }> {
+        if (!this.containerId || !this.isInitialized) {
             return { isRunning: false };
         }
 
         try {
-            // Check if container is running (dev server runs inside container)
-            // This is a synchronous interface so we'll return basic info
+            // Get the actual container URL
+            const url = await this.runtime.getContainerUrl(this.containerId);
+            const portMatch = url.match(/:(\d+)$/);
+            const port = portMatch ? parseInt(portMatch[1]) : undefined;
+
             return {
                 isRunning: this.isInitialized,
-                url: `http://localhost:${this.getContainerPort()}`,
-                port: this.getContainerPort()
+                url: url,
+                port: port
             };
         } catch (error) {
+            console.error('Failed to get container URL:', error);
             return { isRunning: false };
         }
+    }
+
+    /**
+     * Get the container URL for accessing the dev server
+     */
+    async getContainerUrl(): Promise<string> {
+        if (!this.containerId) {
+            throw new Error('Container not initialized');
+        }
+
+        return await this.runtime.getContainerUrl(this.containerId);
     }
 
     /**
