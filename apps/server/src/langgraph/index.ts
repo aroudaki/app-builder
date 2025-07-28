@@ -34,6 +34,19 @@ export {
 // Tool exports will be added in Phase 3
 // export { toolNode, appContainerTool, browserTool, appCompletedTool } from './tools/index.js';
 
+// Tool exports - Phase 3 Implementation
+export {
+    TrackedToolNode,
+    toolNode,
+    appContainerTool,
+    browserTool,
+    appCompletedTool,
+    fileOperationsTool,
+    allTools,
+    validateCodingCompletion,
+    routeAfterTools
+} from './tools/index.js';
+
 // LLM exports
 export {
     createLLM,

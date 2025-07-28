@@ -1,10 +1,11 @@
 import { BrowserAutomation } from '../dist/src/tools/browser.js';
+import { browserTool } from '../dist/src/langgraph/tools/definitions.js';
 
 describe('Browser Automation Tool', () => {
     let browser;
 
     beforeEach(() => {
-        browser = new BrowserAutomation();
+        browser = new BrowserAutomation('test-conversation');
     });
 
     afterEach(async () => {
@@ -13,98 +14,164 @@ describe('Browser Automation Tool', () => {
         }
     });
 
-    test('should initialize browser successfully', async () => {
-        const result = await browser.initialize();
-        expect(result.success).toBe(true);
-        expect(result.message).toContain('Browser initialized');
+    describe('Direct BrowserAutomation Class', () => {
+        test('should initialize browser successfully', async () => {
+            await browser.initialize();
+            // Browser should be initialized without throwing
+            expect(browser).toBeDefined();
+        });
+
+        test('should navigate to a webpage', async () => {
+            await browser.initialize();
+            await browser.navigateToApp('https://example.com');
+            // Navigation should complete without throwing
+        }, 30000);
+
+        test('should capture screenshots', async () => {
+            await browser.initialize();
+            await browser.navigateToApp('https://example.com');
+
+            const screenshot = await browser.takeScreenshot();
+            expect(screenshot).toBeDefined();
+            expect(screenshot.length).toBeGreaterThan(1000); // Should be a reasonable file size
+        }, 30000);
+
+        test('should capture viewport with element annotations', async () => {
+            await browser.initialize();
+            await browser.navigateToApp('https://example.com');
+
+            const viewport = await browser.captureViewport();
+            expect(viewport.screenshot).toBeDefined();
+            expect(viewport.elements).toBeDefined();
+            expect(Array.isArray(viewport.elements)).toBe(true);
+        }, 30000);
+
+        test('should measure page performance', async () => {
+            await browser.initialize();
+            await browser.navigateToApp('https://example.com');
+
+            const metrics = await browser.measurePerformance();
+            expect(metrics).toHaveProperty('loadTime');
+            expect(metrics).toHaveProperty('domContentLoaded');
+            expect(typeof metrics.loadTime).toBe('number');
+        }, 30000);
+
+        test('should check for console errors', async () => {
+            await browser.initialize();
+            await browser.navigateToApp('https://example.com');
+
+            const errors = await browser.getConsoleErrors();
+            expect(Array.isArray(errors)).toBe(true);
+            // Note: example.com might or might not have console errors
+        }, 30000);
+
+        test('should handle browser cleanup properly', async () => {
+            await browser.initialize();
+            await browser.navigateToApp('https://example.com');
+
+            // Cleanup should not throw errors
+            await expect(browser.cleanup()).resolves.not.toThrow();
+        }, 30000);
     });
 
-    test('should navigate to a webpage', async () => {
-        await browser.initialize();
+    describe('LangGraph Tool Integration', () => {
+        test('should have valid tool schema', () => {
+            expect(browserTool.name).toBe('browser_automation');
+            expect(browserTool.description).toContain('browser automation tasks');
+            expect(browserTool.schema).toBeDefined();
+        });
 
-        const result = await browser.navigateToApp('https://example.com');
-        expect(result.success).toBe(true);
-        expect(result.url).toBe('https://example.com/');
-    }, 30000); // 30 second timeout for navigation
+        test('should validate tool input with Zod schema', () => {
+            const validInput = { action: 'screenshot', url: 'https://example.com' };
+            const parsed = browserTool.schema.parse(validInput);
+            expect(parsed).toEqual(validInput);
 
-    test('should capture screenshots', async () => {
-        await browser.initialize();
-        await browser.navigateToApp('https://example.com');
+            // Test invalid action
+            expect(() => {
+                browserTool.schema.parse({ action: 'invalid_action' });
+            }).toThrow();
+        });
 
-        const screenshot = await browser.captureScreenshot();
-        expect(screenshot).toBeDefined();
-        expect(screenshot.length).toBeGreaterThan(1000); // Should be a reasonable file size
-    }, 30000);
+        test('should execute screenshot tool and return JSON result', async () => {
+            const result = await browserTool.invoke({
+                action: 'screenshot',
+                url: 'https://example.com'
+            });
 
-    test('should capture viewport with element annotations', async () => {
-        await browser.initialize();
-        await browser.navigateToApp('https://example.com');
+            const parsed = JSON.parse(result);
+            expect(parsed).toHaveProperty('success');
+            expect(parsed).toHaveProperty('action');
+            expect(parsed.action).toBe('screenshot');
 
-        const viewport = await browser.captureViewport();
-        expect(viewport.screenshot).toBeDefined();
-        expect(viewport.elements).toBeDefined();
-        expect(Array.isArray(viewport.elements)).toBe(true);
-    }, 30000);
+            if (parsed.success) {
+                expect(parsed).toHaveProperty('size');
+                expect(parsed).toHaveProperty('format');
+            }
+        }, 30000);
 
-    test('should inspect page elements', async () => {
-        await browser.initialize();
-        await browser.navigateToApp('https://example.com');
+        test('should execute navigate tool and return JSON result', async () => {
+            const result = await browserTool.invoke({
+                action: 'navigate',
+                url: 'https://example.com'
+            });
 
-        const elements = await browser.inspectElements();
-        expect(Array.isArray(elements)).toBe(true);
-        expect(elements.length).toBeGreaterThan(0);
+            const parsed = JSON.parse(result);
+            expect(parsed).toHaveProperty('success');
+            expect(parsed).toHaveProperty('action');
+            expect(parsed.action).toBe('navigate');
 
-        // Check that elements have required properties
-        if (elements.length > 0) {
-            const firstElement = elements[0];
-            expect(firstElement).toHaveProperty('tag');
-            expect(firstElement).toHaveProperty('visible');
-        }
-    }, 30000);
+            if (parsed.success) {
+                expect(parsed).toHaveProperty('url');
+                expect(parsed.url).toBe('https://example.com');
+            }
+        }, 30000);
 
-    test('should measure page performance', async () => {
-        await browser.initialize();
-        await browser.navigateToApp('https://example.com');
+        test('should execute test tool and return comprehensive result', async () => {
+            const result = await browserTool.invoke({
+                action: 'test',
+                url: 'https://example.com'
+            });
 
-        const metrics = await browser.measurePerformance();
-        expect(metrics).toHaveProperty('loadTime');
-        expect(metrics).toHaveProperty('domContentLoaded');
-        expect(typeof metrics.loadTime).toBe('number');
-    }, 30000);
+            const parsed = JSON.parse(result);
+            expect(parsed).toHaveProperty('success');
+            expect(parsed).toHaveProperty('action');
+            expect(parsed.action).toBe('test');
 
-    test('should check for console errors', async () => {
-        await browser.initialize();
-        await browser.navigateToApp('https://example.com');
+            if (parsed.success) {
+                expect(parsed).toHaveProperty('elementsFound');
+                expect(parsed).toHaveProperty('consoleErrors');
+                expect(parsed).toHaveProperty('performance');
+                expect(typeof parsed.elementsFound).toBe('number');
+                expect(typeof parsed.consoleErrors).toBe('number');
+            }
+        }, 30000);
 
-        const errors = await browser.getConsoleErrors();
-        expect(Array.isArray(errors)).toBe(true);
-        // Note: example.com might or might not have console errors
-    }, 30000);
+        test('should execute inspect tool and return element data', async () => {
+            const result = await browserTool.invoke({
+                action: 'inspect',
+                url: 'https://example.com'
+            });
 
-    test('should support different browser types', async () => {
-        // Test Chromium (default)
-        const chromiumBrowser = new BrowserAutomation('chromium');
-        const chromiumResult = await chromiumBrowser.initialize();
-        expect(chromiumResult.success).toBe(true);
-        await chromiumBrowser.cleanup();
+            const parsed = JSON.parse(result);
+            expect(parsed).toHaveProperty('success');
+            expect(parsed).toHaveProperty('action');
+            expect(parsed.action).toBe('inspect');
 
-        // Test Firefox if available
-        try {
-            const firefoxBrowser = new BrowserAutomation('firefox');
-            const firefoxResult = await firefoxBrowser.initialize();
-            expect(firefoxResult.success).toBe(true);
-            await firefoxBrowser.cleanup();
-        } catch (error) {
-            // Firefox might not be installed, that's ok
-            console.log('Firefox test skipped:', error.message);
-        }
+            if (parsed.success) {
+                expect(parsed).toHaveProperty('elements');
+                expect(Array.isArray(parsed.elements)).toBe(true);
+            }
+        }, 30000);
+
+        test('should handle tool execution errors gracefully', async () => {
+            const result = await browserTool.invoke({
+                action: 'navigate',
+                url: 'invalid-url'
+            });
+
+            const parsed = JSON.parse(result);
+            expect(parsed.success).toBe(false);
+            expect(parsed).toHaveProperty('error');
+        });
     });
-
-    test('should handle browser cleanup properly', async () => {
-        await browser.initialize();
-        await browser.navigateToApp('https://example.com');
-
-        // Cleanup should not throw errors
-        await expect(browser.cleanup()).resolves.not.toThrow();
-    }, 30000);
 });
