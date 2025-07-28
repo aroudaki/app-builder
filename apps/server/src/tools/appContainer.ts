@@ -29,8 +29,6 @@ export interface ProcessInfo {
  * This tool uses real Docker containers to provide isolated environments where the coding agent
  * can execute bash commands in a real Linux environment. It supports file operations,
  * process management, and all common shell commands needed for development.
- * 
- * This replaces the previous mock container implementation with real Docker integration.
  */
 export class AppContainer {
     private runtime: ContainerRuntime;
@@ -44,7 +42,6 @@ export class AppContainer {
 
     /**
      * Initialize the container environment with boilerplate React app
-     * This replaces the mock file system with a real Docker container
      */
     async initialize(): Promise<void> {
         if (this.isInitialized) {

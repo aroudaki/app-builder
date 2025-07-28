@@ -4,21 +4,21 @@
 
 ```bash
 # Build base image
-./docker-manager build
+./docker-manager.sh build
 
 # Create and test a container
-./docker-manager test
+./docker-manager.sh test
 
 # Create a named container
-./docker-manager create my-app 3001
+./docker-manager.sh create my-app 3001
 
 # Start dev server
-./docker-manager start-dev my-app
+./docker-manager.sh start-dev my-app
 
 # Access app at http://localhost:3001
 
 # Clean up when done
-./docker-manager cleanup
+./docker-manager.sh cleanup
 ```
 
 ## Common Commands

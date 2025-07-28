@@ -225,7 +225,7 @@ export default App;`;
         console.log();
 
         console.log('🎯 This demonstrates how the Docker Container Manager');
-        console.log('   will replace the current mock container system');
+        console.log('   will enhance the current container system');
         console.log('   with real Docker isolation and better performance.');
         console.log();
 

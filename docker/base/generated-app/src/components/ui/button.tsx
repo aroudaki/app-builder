@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils"
  * Examples:
  * - <Button>Default Button</Button>
  * - <Button variant="destructive" size="lg">Delete</Button>
- * - <Button variant="outline" onClick={() => setCount(count + 1)}>Count: {count}</Button>
+ * - <Button variant="outline" onClick={() => handleClick()}>Click me</Button>
  */
 
 const buttonVariants = cva(
