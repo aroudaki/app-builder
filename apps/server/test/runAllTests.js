@@ -1,8 +1,9 @@
 import { testAppContainer } from './containerTest.js';
+import { testDockerContainerManager } from './dockerContainerManager.test.js';
 
 /**
  * Combined test runner for all tool tests
- * This runs both the browser automation test and container test
+ * This runs all the tool tests including container tools and browser automation
  */
 async function runAllToolTests() {
     console.log('🧪 Running All Tool Tests...\n');
@@ -11,9 +12,9 @@ async function runAllToolTests() {
     let totalTests = 0;
 
     try {
-        // Test 1: App Container Tool
+        // Test 1: App Container Tool (Mock System)
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('🐳 TEST 1: APP CONTAINER TOOL');
+        console.log('🐳 TEST 1: APP CONTAINER TOOL (MOCK SYSTEM)');
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         totalTests++;
 
@@ -22,9 +23,20 @@ async function runAllToolTests() {
 
         console.log('✅ App Container Tool test: PASSED\n');
 
-        // Test 2: Browser Automation Tool
+        // Test 2: Docker Container Manager (Real Docker)
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('🌐 TEST 2: BROWSER AUTOMATION TOOL');
+        console.log('🐳 TEST 2: DOCKER CONTAINER MANAGER (REAL DOCKER)');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        totalTests++;
+
+        await testDockerContainerManager();
+        passedTests++;
+
+        console.log('✅ Docker Container Manager test: PASSED\n');
+
+        // Test 3: Browser Automation Tool
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('🌐 TEST 3: BROWSER AUTOMATION TOOL');
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         totalTests++;
 
@@ -71,7 +83,8 @@ async function runAllToolTests() {
         console.log('🎉 ALL TOOLS WORKING PERFECTLY!');
         console.log('');
         console.log('🚀 Tool Implementation Status:');
-        console.log('   ✅ App Container Tool - COMPLETE');
+        console.log('   ✅ App Container Tool (Mock) - COMPLETE');
+        console.log('   ✅ Docker Container Manager - COMPLETE');
         console.log('   ✅ Browser Automation Tool - COMPLETE');
         console.log('   ✅ Computer Use Agent Foundation - COMPLETE');
         console.log('   ✅ Linux-like Command Environment - COMPLETE');
@@ -79,7 +92,7 @@ async function runAllToolTests() {
         console.log('   ✅ Multi-browser Support - COMPLETE');
         console.log('   ✅ Screenshot & Interaction Capture - COMPLETE');
         console.log('');
-        console.log('🎯 Task 8 Container & Browser Tooling: COMPLETED');
+        console.log('🎯 Task 2.1 Docker Container Manager: COMPLETED');
 
         return true;
     } else {

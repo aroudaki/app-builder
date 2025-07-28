@@ -1,6 +1,9 @@
 // Export all tools
 export { AppContainer } from './appContainer';
-export type { CommandResult, FileInfo, ProcessInfo } from './appContainer';
+export type { FileInfo, ProcessInfo } from './appContainer';
+
+// Re-export container runtime types
+export type { CommandResult, ContainerConfig, FileUpload, FileDownload } from '../services/types';
 
 // Browser automation exports
 export { BrowserAutomation, BrowserTool } from './browser';

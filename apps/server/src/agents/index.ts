@@ -105,6 +105,7 @@ export class BaseAgent {
 
             // Initialize AppContainer and BrowserAutomation for this conversation
             this.appContainer = new AppContainer(context.conversationId);
+            await this.appContainer.initialize(); // Initialize Docker container
             this.browserAutomation = new BrowserAutomation(context.conversationId);
             console.log(`🐛 DEBUG: AppContainer initialized for conversation: ${context.conversationId}`);
 
@@ -738,6 +739,9 @@ export class BaseAgent {
             // Cleanup browser resources
             await this.browserAutomation.cleanup();
 
+            // Cleanup container resources
+            await this.appContainer.cleanup();
+
             return {
                 type: 'browser_automation_complete',
                 appUrl,
@@ -759,8 +763,9 @@ export class BaseAgent {
             // Ensure cleanup on error
             try {
                 await this.browserAutomation.cleanup();
+                await this.appContainer.cleanup();
             } catch (cleanupError) {
-                console.warn('Browser cleanup failed:', cleanupError);
+                console.warn('Cleanup failed:', cleanupError);
             }
 
             return {

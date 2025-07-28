@@ -12,6 +12,7 @@
         "test:jest": "jest --passWithNoTests",
         "test:tools": "node test/runAllTests.js",
         "test:container": "node test/containerTest.js",
+        "test:docker": "node test/dockerContainerManager.test.js",
         "test:browser": "node test/browserTest.js",
         "test:watch": "jest --watch",
         "test:coverage": "npm run build && jest --coverage --passWithNoTests",
@@ -26,7 +27,9 @@
     "dependencies": {
         "@azure/openai": "^1.0.0-beta.7",
         "@azure/storage-blob": "^12.17.0",
+        "@types/dockerode": "^3.3.42",
         "cors": "^2.8.5",
+        "dockerode": "^4.0.7",
         "dotenv": "^16.3.1",
         "express": "^4.18.2",
         "langchain": "^0.0.208",
