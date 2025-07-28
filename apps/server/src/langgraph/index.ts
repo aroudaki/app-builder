@@ -46,3 +46,39 @@ export {
     type ModelType,
     type LLMConfig
 } from './llm.js';
+
+// Prompt Template exports
+export {
+    getPromptTemplate,
+    getAgentTemperature,
+    getAgentModel,
+    setAgentModel,
+    getClarificationPrompt,
+    getRequirementsPrompt,
+    getWireframePrompt,
+    getCodingPrompt,
+    getModificationPrompt,
+    AGENT_TEMPERATURES,
+    AGENT_MODELS,
+    clarificationPromptTemplate,
+    requirementsPromptTemplate,
+    wireframePromptTemplate,
+    codingPromptTemplate,
+    modificationPromptTemplate
+} from './prompts.js';
+
+// Agent exports
+export {
+    clarificationAgent,
+    requirementsAgent,
+    wireframeAgent,
+    codingAgent,
+    codingAgentWithTools,
+    modificationAgent,
+    getAgent,
+    getAvailableAgentTypes,
+    isValidAgentType,
+    AGENT_REGISTRY,
+    type AgentType,
+    type AgentFunction
+} from './agents/index.js';
