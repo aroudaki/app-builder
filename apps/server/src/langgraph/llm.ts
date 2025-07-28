@@ -20,13 +20,13 @@ export type ModelType = 'gpt-4.1' | 'o3';
  * LLM configuration interface
  */
 export interface LLMConfig {
-  model: string;
-  temperature?: number;
-  streaming?: boolean;
-  azureOpenAIApiKey: string;
-  azureOpenAIApiInstanceName: string;
-  azureOpenAIApiDeploymentName: string;
-  azureOpenAIApiVersion: string;
+    model: string;
+    temperature?: number;
+    streaming?: boolean;
+    azureOpenAIApiKey: string;
+    azureOpenAIApiInstanceName: string;
+    azureOpenAIApiDeploymentName: string;
+    azureOpenAIApiVersion: string;
 }
 
 /**
@@ -37,34 +37,34 @@ export interface LLMConfig {
  * @returns Configured AzureChatOpenAI instance
  */
 export function createLLM(
-  modelType: ModelType = 'gpt-4.1',
-  options: {
-    temperature?: number;
-    streaming?: boolean;
-    maxTokens?: number;
-  } = {}
+    modelType: ModelType = 'gpt-4.1',
+    options: {
+        temperature?: number;
+        streaming?: boolean;
+        maxTokens?: number;
+    } = {}
 ): AzureChatOpenAI {
-  const {
-    temperature = 0.3,
-    streaming = true,
-    maxTokens
-  } = options;
+    const {
+        temperature = 0.3,
+        streaming = true,
+        maxTokens
+    } = options;
 
-  // Get model-specific configuration
-  const config = getModelConfig(modelType);
-  
-  // Validate environment variables
-  validateEnvironmentVariables(modelType);
+    // Get model-specific configuration
+    const config = getModelConfig(modelType);
 
-  return new AzureChatOpenAI({
-    azureOpenAIApiKey: config.azureOpenAIApiKey,
-    azureOpenAIApiInstanceName: config.azureOpenAIApiInstanceName,
-    azureOpenAIApiDeploymentName: config.azureOpenAIApiDeploymentName,
-    azureOpenAIApiVersion: config.azureOpenAIApiVersion,
-    temperature,
-    streaming,
-    maxTokens,
-  });
+    // Validate environment variables
+    validateEnvironmentVariables(modelType);
+
+    return new AzureChatOpenAI({
+        azureOpenAIApiKey: config.azureOpenAIApiKey,
+        azureOpenAIApiInstanceName: config.azureOpenAIApiInstanceName,
+        azureOpenAIApiDeploymentName: config.azureOpenAIApiDeploymentName,
+        azureOpenAIApiVersion: config.azureOpenAIApiVersion,
+        temperature,
+        streaming,
+        maxTokens,
+    });
 }
 
 /**
@@ -74,24 +74,24 @@ export function createLLM(
  * @returns LLM configuration object
  */
 function getModelConfig(modelType: ModelType): LLMConfig {
-  if (modelType === 'o3') {
-    return {
-      model: "o3",
-      azureOpenAIApiKey: process.env.AOAI_o3_API_KEY!,
-      azureOpenAIApiInstanceName: process.env.AOAI_o3_INSTANCE_NAME!,
-      azureOpenAIApiDeploymentName: process.env.AOAI_o3_DEPLOYMENT_NAME!,
-      azureOpenAIApiVersion: process.env.AOAI_o3_VERSION!,
-    };
-  }
+    if (modelType === 'o3') {
+        return {
+            model: "o3",
+            azureOpenAIApiKey: process.env.AOAI_o3_API_KEY!,
+            azureOpenAIApiInstanceName: process.env.AOAI_o3_INSTANCE_NAME!,
+            azureOpenAIApiDeploymentName: process.env.AOAI_o3_DEPLOYMENT_NAME!,
+            azureOpenAIApiVersion: process.env.AOAI_o3_VERSION!,
+        };
+    }
 
-  // Default to gpt-4.1
-  return {
-    model: "gpt-4.1",
-    azureOpenAIApiKey: process.env.AOAI_4_1_API_KEY!,
-    azureOpenAIApiInstanceName: process.env.AOAI_4_1_INSTANCE_NAME!,
-    azureOpenAIApiDeploymentName: process.env.AOAI_4_1_DEPLOYMENT_NAME!,
-    azureOpenAIApiVersion: process.env.AOAI_4_1_VERSION!,
-  };
+    // Default to gpt-4.1
+    return {
+        model: "gpt-4.1",
+        azureOpenAIApiKey: process.env.AOAI_4_1_API_KEY!,
+        azureOpenAIApiInstanceName: process.env.AOAI_4_1_INSTANCE_NAME!,
+        azureOpenAIApiDeploymentName: process.env.AOAI_4_1_DEPLOYMENT_NAME!,
+        azureOpenAIApiVersion: process.env.AOAI_4_1_VERSION!,
+    };
 }
 
 /**
@@ -101,18 +101,18 @@ function getModelConfig(modelType: ModelType): LLMConfig {
  * @throws Error if required environment variables are missing
  */
 function validateEnvironmentVariables(modelType: ModelType): void {
-  const requiredVars = modelType === 'o3' 
-    ? ['AOAI_o3_API_KEY', 'AOAI_o3_INSTANCE_NAME', 'AOAI_o3_DEPLOYMENT_NAME', 'AOAI_o3_VERSION']
-    : ['AOAI_4_1_API_KEY', 'AOAI_4_1_INSTANCE_NAME', 'AOAI_4_1_DEPLOYMENT_NAME', 'AOAI_4_1_VERSION'];
+    const requiredVars = modelType === 'o3'
+        ? ['AOAI_o3_API_KEY', 'AOAI_o3_INSTANCE_NAME', 'AOAI_o3_DEPLOYMENT_NAME', 'AOAI_o3_VERSION']
+        : ['AOAI_4_1_API_KEY', 'AOAI_4_1_INSTANCE_NAME', 'AOAI_4_1_DEPLOYMENT_NAME', 'AOAI_4_1_VERSION'];
 
-  const missingVars = requiredVars.filter(varName => !process.env[varName]);
-  
-  if (missingVars.length > 0) {
-    throw new Error(
-      `Missing required environment variables for ${modelType} model: ${missingVars.join(', ')}\n` +
-      `Please check your .env file and ensure all Azure OpenAI configuration is set.`
-    );
-  }
+    const missingVars = requiredVars.filter(varName => !process.env[varName]);
+
+    if (missingVars.length > 0) {
+        throw new Error(
+            `Missing required environment variables for ${modelType} model: ${missingVars.join(', ')}\n` +
+            `Please check your .env file and ensure all Azure OpenAI configuration is set.`
+        );
+    }
 }
 
 /**
@@ -128,11 +128,11 @@ function validateEnvironmentVariables(modelType: ModelType): void {
  * @returns Configured AzureChatOpenAI instance for GPT-4.1
  */
 export function createGPT41LLM(options?: {
-  temperature?: number;
-  streaming?: boolean;
-  maxTokens?: number;
+    temperature?: number;
+    streaming?: boolean;
+    maxTokens?: number;
 }): AzureChatOpenAI {
-  return createLLM('gpt-4.1', options);
+    return createLLM('gpt-4.1', options);
 }
 
 /**
@@ -148,11 +148,11 @@ export function createGPT41LLM(options?: {
  * @returns Configured AzureChatOpenAI instance for O3
  */
 export function createO3LLM(options?: {
-  temperature?: number;
-  streaming?: boolean;
-  maxTokens?: number;
+    temperature?: number;
+    streaming?: boolean;
+    maxTokens?: number;
 }): AzureChatOpenAI {
-  return createLLM('o3', options);
+    return createLLM('o3', options);
 }
 
 /**
@@ -163,23 +163,23 @@ export function createO3LLM(options?: {
  * @returns Appropriately configured LLM instance
  */
 export function createLLMForAgent(
-  agentType: 'clarification' | 'requirements' | 'wireframe' | 'coding' | 'modification',
-  options?: {
-    temperature?: number;
-    streaming?: boolean;
-    maxTokens?: number;
-  }
+    agentType: 'clarification' | 'requirements' | 'wireframe' | 'coding' | 'modification',
+    options?: {
+        temperature?: number;
+        streaming?: boolean;
+        maxTokens?: number;
+    }
 ): AzureChatOpenAI {
-  // Use O3 for complex coding tasks, GPT-4.1 for everything else
-  const modelType: ModelType = agentType === 'coding' ? 'o3' : 'gpt-4.1';
-  
-  // Agent-specific temperature settings
-  const temperature = options?.temperature ?? getDefaultTemperature(agentType);
-  
-  return createLLM(modelType, {
-    ...options,
-    temperature
-  });
+    // Use O3 for complex coding tasks, GPT-4.1 for everything else
+    const modelType: ModelType = agentType === 'coding' ? 'o3' : 'gpt-4.1';
+
+    // Agent-specific temperature settings
+    const temperature = options?.temperature ?? getDefaultTemperature(agentType);
+
+    return createLLM(modelType, {
+        ...options,
+        temperature
+    });
 }
 
 /**
@@ -189,20 +189,20 @@ export function createLLMForAgent(
  * @returns Recommended temperature value
  */
 function getDefaultTemperature(agentType: string): number {
-  switch (agentType) {
-    case 'clarification':
-      return 0.4; // Slightly creative for engaging questions
-    case 'requirements':
-      return 0.2; // More focused for structured analysis
-    case 'wireframe':
-      return 0.3; // Balanced for structured but creative design
-    case 'coding':
-      return 0.1; // Very focused for precise code generation
-    case 'modification':
-      return 0.2; // Focused for accurate modifications
-    default:
-      return 0.3; // Default balanced setting
-  }
+    switch (agentType) {
+        case 'clarification':
+            return 0.4; // Slightly creative for engaging questions
+        case 'requirements':
+            return 0.2; // More focused for structured analysis
+        case 'wireframe':
+            return 0.3; // Balanced for structured but creative design
+        case 'coding':
+            return 0.1; // Very focused for precise code generation
+        case 'modification':
+            return 0.2; // Focused for accurate modifications
+        default:
+            return 0.3; // Default balanced setting
+    }
 }
 
 /**
@@ -212,21 +212,21 @@ function getDefaultTemperature(agentType: string): number {
  * @returns Promise that resolves if connection is successful
  */
 export async function testLLMConnection(modelType: ModelType = 'gpt-4.1'): Promise<void> {
-  try {
-    const llm = createLLM(modelType, { streaming: false });
-    
-    // Simple test call
-    const response = await llm.invoke("Say 'Hello' if you can hear me.");
-    
-    if (!response.content) {
-      throw new Error('No response received from LLM');
+    try {
+        const llm = createLLM(modelType, { streaming: false });
+
+        // Simple test call
+        const response = await llm.invoke("Say 'Hello' if you can hear me.");
+
+        if (!response.content) {
+            throw new Error('No response received from LLM');
+        }
+
+        console.log(`✅ ${modelType.toUpperCase()} LLM connection successful`);
+    } catch (error) {
+        console.error(`❌ ${modelType.toUpperCase()} LLM connection failed:`, error);
+        throw error;
     }
-    
-    console.log(`✅ ${modelType.toUpperCase()} LLM connection successful`);
-  } catch (error) {
-    console.error(`❌ ${modelType.toUpperCase()} LLM connection failed:`, error);
-    throw error;
-  }
 }
 
 /**
@@ -235,7 +235,7 @@ export async function testLLMConnection(modelType: ModelType = 'gpt-4.1'): Promi
  * @returns Array of supported model types
  */
 export function getAvailableModelTypes(): ModelType[] {
-  return ['gpt-4.1', 'o3'];
+    return ['gpt-4.1', 'o3'];
 }
 
 /**
@@ -245,10 +245,10 @@ export function getAvailableModelTypes(): ModelType[] {
  * @returns True if the model is properly configured
  */
 export function isModelAvailable(modelType: ModelType): boolean {
-  try {
-    validateEnvironmentVariables(modelType);
-    return true;
-  } catch {
-    return false;
-  }
+    try {
+        validateEnvironmentVariables(modelType);
+        return true;
+    } catch {
+        return false;
+    }
 }
