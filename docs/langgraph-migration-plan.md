@@ -810,7 +810,6 @@ export function buildModificationPipelineGraph() {
 ```bash
 npm install @langchain/langgraph @langchain/core @langchain/openai
 npm install zod  # For tool schema definitions
-npm uninstall @azure/openai  # Remove deprecated dependency
 ```
 
 **1.2 Update Package.json**
