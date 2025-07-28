@@ -2,6 +2,36 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * CARD COMPONENTS
+ * 
+ * CODER AGENT INSTRUCTIONS:
+ * - These are pre-built Card components for structured content
+ * - Import: import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
+ * 
+ * Basic usage:
+ * <Card>
+ *   <CardHeader>
+ *     <CardTitle>Card Title</CardTitle>
+ *     <CardDescription>Card description</CardDescription>
+ *   </CardHeader>
+ *   <CardContent>
+ *     <p>Card content goes here</p>
+ *   </CardContent>
+ *   <CardFooter>
+ *     <Button>Action</Button>
+ *   </CardFooter>
+ * </Card>
+ * 
+ * Components available:
+ * - Card: Main container
+ * - CardHeader: Top section with title/description
+ * - CardTitle: Main heading
+ * - CardDescription: Subtitle/description
+ * - CardContent: Main content area
+ * - CardFooter: Bottom section for actions
+ */
+
 const Card = React.forwardRef<
     HTMLDivElement,
     React.HTMLAttributes<HTMLDivElement>
