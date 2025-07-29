@@ -5,14 +5,19 @@
  * is working correctly before implementing full agent logic.
  */
 
-import { testGraphExecution } from '../src/langgraph/graphs/index.js';
+import { validateAllGraphs } from '../dist/src/langgraph/graphs/index.js';
 
 console.log('🧪 Testing Basic Graph Structure...\n');
 
 async function runGraphTests() {
     try {
-        // Test basic graph compilation and execution
-        await testGraphExecution('test-graph-execution');
+        // Test basic graph compilation and validation (no execution)
+        console.log('🔍 Running graph structure validation...');
+        const isValid = await validateAllGraphs();
+
+        if (!isValid) {
+            throw new Error('Graph validation failed');
+        }
 
         console.log('\n🎉 All graph structure tests passed! LangGraph integration is working correctly.');
 

@@ -18,9 +18,9 @@ async function validateGraphStructures() {
             buildModificationPipelineGraph,
             buildMainGraph,
             validateAllGraphs,
-            createInitialGraphState,
+            createInitialState,
             analyzeUserIntent,
-            getPhase4Status
+            getGraphSystemStatus
         } = await import('../dist/src/langgraph/index.js');
 
         // Test 1: Graph compilation
@@ -40,7 +40,7 @@ async function validateGraphStructures() {
 
         // Test 3: State management
         console.log('📝 Test 3: State Management...');
-        const initialState = createInitialGraphState("Create a test app", "structure-validation");
+        const initialState = createInitialState("Create a test app", "structure-validation");
         if (!initialState || !initialState.conversationId || !initialState.messages) {
             throw new Error('State creation failed');
         }
@@ -58,7 +58,7 @@ async function validateGraphStructures() {
 
         // Test 5: Implementation status
         console.log('📊 Test 5: Implementation Status...');
-        const status = getPhase4Status();
+        const status = getGraphSystemStatus();
         if (status.status !== 'complete') {
             throw new Error('Implementation not reported as complete');
         }
