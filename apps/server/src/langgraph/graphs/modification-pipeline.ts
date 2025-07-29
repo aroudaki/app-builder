@@ -10,7 +10,7 @@
 import { StateGraph, START, END } from "@langchain/langgraph";
 import { HumanMessage } from "@langchain/core/messages";
 import { AppBuilderState, AppBuilderStateType } from "../state.js";
-import { modificationAgent, codingAgent } from "../agents/index.js";
+import { modificationAgent, codingAgentWithTools } from "../agents/index.js";
 import { toolNode, routeAfterTools } from "../tools/index.js";
 
 /**
@@ -84,7 +84,7 @@ export function buildModificationPipelineGraph() {
     const graph = new StateGraph(AppBuilderState)
         // Add agent nodes for modification workflow
         .addNode("modification_agent", modificationAgent)
-        .addNode("coding_agent", codingAgent)
+        .addNode("coding_agent", codingAgentWithTools)
         .addNode("tools", toolNode);
 
     // Define the modification flow with conditional routing

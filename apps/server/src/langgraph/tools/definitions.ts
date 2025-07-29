@@ -12,14 +12,13 @@ import { BrowserAutomation } from "../../tools/browser.js";
 
 // Convert AppContainer to LangGraph tool
 export const appContainerTool = tool(
-    async ({ command }: { command: string }) => {
+    async ({ command, conversationId }: { command: string; conversationId?: string }) => {
         console.log(`🔧 Executing container command: ${command}`);
 
         try {
-            // Use global container instance based on conversation context
-            // This will be improved when we have enhanced state management
-            const conversationId = "current"; // TODO: Get from state context
-            const appContainer = new AppContainer(conversationId);
+            // Use conversationId from parameters or fallback to "default"
+            const contextId = conversationId || "default";
+            const appContainer = new AppContainer(contextId);
 
             // Execute the command in the container
             const result = await appContainer.executeCommand(command);
@@ -30,6 +29,7 @@ export const appContainerTool = tool(
                 error: result.stderr,
                 exitCode: result.exitCode,
                 command: command,
+                conversationId: contextId,
                 timestamp: new Date().toISOString()
             });
         } catch (error) {
@@ -65,24 +65,26 @@ Examples:
 - "touch src/components/NewComponent.tsx" - Create new file
 - "sed -i 's/old/new/g' src/App.tsx" - Find and replace in file`,
         schema: z.object({
-            command: z.string().describe("The bash command to execute in the container environment")
+            command: z.string().describe("The bash command to execute in the container environment"),
+            conversationId: z.string().optional().describe("The conversation ID for container context (optional)")
         })
     }
 );
 
 // Convert BrowserAutomation to LangGraph tool
 export const browserTool = tool(
-    async ({ action, url, options }: {
+    async ({ action, url, options, conversationId }: {
         action: string;
         url?: string;
-        options?: any
+        options?: any;
+        conversationId?: string;
     }) => {
         console.log(`🌐 Executing browser action: ${action}`);
 
         try {
-            // Use global browser instance based on conversation context
-            const conversationId = "current"; // TODO: Get from state context
-            const browser = new BrowserAutomation(conversationId, {
+            // Use conversationId from parameters or fallback to "default"
+            const contextId = conversationId || "default";
+            const browser = new BrowserAutomation(contextId, {
                 headless: true,
                 viewport: { width: 1280, height: 720 }
             });
@@ -192,7 +194,8 @@ Examples:
         schema: z.object({
             action: z.enum(["screenshot", "navigate", "test", "inspect"]).describe("The browser action to perform"),
             url: z.string().optional().describe("The URL to navigate to (optional for some actions)"),
-            options: z.any().optional().describe("Additional options for the action (e.g., screenshot format)")
+            options: z.any().optional().describe("Additional options for the action (e.g., screenshot format)"),
+            conversationId: z.string().optional().describe("The conversation ID for browser context (optional)")
         })
     }
 );
@@ -263,17 +266,18 @@ The tool validates these criteria and provides clear feedback about completion s
 
 // File operations tool for container file management
 export const fileOperationsTool = tool(
-    async ({ operation, path, content, mode }: {
+    async ({ operation, path, content, mode, conversationId }: {
         operation: string;
         path: string;
         content?: string;
         mode?: string;
+        conversationId?: string;
     }) => {
         console.log(`📁 Executing file operation: ${operation} on ${path}`);
 
         try {
-            const conversationId = "current"; // TODO: Get from state context
-            const appContainer = new AppContainer(conversationId);
+            const contextId = conversationId || "default";
+            const appContainer = new AppContainer(contextId);
 
             let result: any;
 
@@ -357,7 +361,8 @@ This tool is useful for bulk file operations or when you need to work with file 
             operation: z.enum(["upload", "download", "read"]).describe("The file operation to perform"),
             path: z.string().describe("The file path in the container"),
             content: z.string().optional().describe("File content for upload operation"),
-            mode: z.string().optional().describe("File permissions mode (default: 0644)")
+            mode: z.string().optional().describe("File permissions mode (default: 0644)"),
+            conversationId: z.string().optional().describe("The conversation ID for container context (optional)")
         })
     }
 );

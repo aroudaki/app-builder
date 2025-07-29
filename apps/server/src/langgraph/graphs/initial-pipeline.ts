@@ -16,7 +16,7 @@ import {
     clarificationAgent,
     requirementsAgent,
     wireframeAgent,
-    codingAgent
+    codingAgentWithTools
 } from "../agents/index.js";
 import { toolNode, routeAfterTools } from "../tools/index.js";
 
@@ -158,7 +158,7 @@ export function buildInitialPipelineGraph() {
         .addNode("clarification_agent", clarificationAgent)
         .addNode("requirements_agent", requirementsAgent)
         .addNode("wireframe_agent", wireframeAgent)
-        .addNode("coding_agent", codingAgent)
+        .addNode("coding_agent", codingAgentWithTools)
         .addNode("tools", toolNode)
 
         // Add wait_for_user node for conversation pausing
