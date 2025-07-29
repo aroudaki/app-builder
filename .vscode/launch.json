@@ -3,56 +3,28 @@
     "configurations": [
         {
             "name": "Debug Server",
-            "type": "node",
+            "type": "node-terminal",
             "request": "launch",
-            "program": "${workspaceFolder}/apps/server/src/server.ts",
+            "command": "npx tsx watch --inspect src/server.ts",
             "cwd": "${workspaceFolder}/apps/server",
-            "runtimeExecutable": "npx",
-            "runtimeArgs": [
-                "tsx"
-            ],
             "env": {
                 "NODE_ENV": "development",
                 "PORT": "3000"
             },
-            "envFile": "${workspaceFolder}/.env",
-            "console": "integratedTerminal",
-            "internalConsoleOptions": "neverOpen",
-            "restart": true,
-            "sourceMaps": true,
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "outFiles": [
-                "${workspaceFolder}/apps/server/dist/**/*.js"
-            ]
+            "envFile": "${workspaceFolder}/.env"
         },
         {
             "name": "Debug Server with Tracing",
-            "type": "node",
+            "type": "node-terminal",
             "request": "launch",
-            "program": "${workspaceFolder}/apps/server/src/server.ts",
+            "command": "npx tsx watch --inspect src/server.ts",
             "cwd": "${workspaceFolder}/apps/server",
-            "runtimeExecutable": "npx",
-            "runtimeArgs": [
-                "tsx"
-            ],
             "env": {
                 "NODE_ENV": "development",
                 "PORT": "3000",
                 "LANGSMITH_TRACING": "true"
             },
-            "envFile": "${workspaceFolder}/.env",
-            "console": "integratedTerminal",
-            "internalConsoleOptions": "neverOpen",
-            "restart": true,
-            "sourceMaps": true,
-            "skipFiles": [
-                "<node_internals>/**"
-            ],
-            "outFiles": [
-                "${workspaceFolder}/apps/server/dist/**/*.js"
-            ]
+            "envFile": "${workspaceFolder}/.env"
         },
         {
             "name": "Debug Server Tests",
