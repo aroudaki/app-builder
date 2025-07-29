@@ -62,6 +62,20 @@ export async function handleWebSocketMessage(ws: WebSocket, input: RunAgentInput
             input.conversationId
         );
 
+        // Debug: Check what events were stored
+        console.log(`🔍 Final state aguiEvents count: ${finalLangGraphState.aguiEvents?.length || 0}`);
+        if (finalLangGraphState.aguiEvents?.length > 0) {
+            console.log(`📋 Event types: ${finalLangGraphState.aguiEvents.map(e => e.type).join(', ')}`);
+        }
+
+        // Emit any stored AG-UI events from the graph execution
+        if (finalLangGraphState.aguiEvents && finalLangGraphState.aguiEvents.length > 0) {
+            console.log(`📤 Emitting ${finalLangGraphState.aguiEvents.length} stored AG-UI events`);
+            for (const storedEvent of finalLangGraphState.aguiEvents) {
+                emitEvent(ws, storedEvent);
+            }
+        }
+
         // Convert LangGraph state back to AG-UI context
         const finalContext = stateToAGUIContext(finalLangGraphState);
 

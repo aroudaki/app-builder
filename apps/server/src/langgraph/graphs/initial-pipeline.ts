@@ -22,21 +22,18 @@ import { toolNode, routeAfterTools } from "../tools/index.js";
 
 /**
  * Wait for user response node
- * This node pauses the graph execution to wait for user input
+ * This node properly pauses the graph execution to wait for user input
+ * It should integrate with the AG-UI event system to signal the need for user response
  */
 async function waitForUserNode(state: AppBuilderStateType): Promise<Partial<AppBuilderStateType>> {
-    console.log("⏸️  Waiting for user response...");
+    console.log("⏸️  Waiting for user input...");
 
-    // This node essentially pauses execution
-    // The graph will be resumed when a new user message is received
+    // Set current agent to indicate we're waiting for user response
+    // The graph execution should pause here and resume when new user input arrives
     return {
-        currentAgent: "wait_for_user",
-        aguiEvents: [{
-            type: "WAITING_FOR_USER",
-            conversationId: state.conversationId,
-            message: "Please provide your response to continue",
-            timestamp: Date.now()
-        }]
+        currentAgent: "wait_for_user"
+        // Important: Don't add any new messages here, just update state
+        // The graph execution should pause here until resumed externally
     };
 }
 
@@ -174,12 +171,7 @@ export function buildInitialPipelineGraph() {
         .addNode("tools", toolNode)
 
         // Add wait_for_user node for conversation pausing
-        .addNode("wait_for_user", async (state: AppBuilderStateType) => {
-            console.log("⏸️  Waiting for user input...");
-            // This node just returns the state unchanged
-            // The conversation will be paused here until user provides input
-            return state;
-        });
+        .addNode("wait_for_user", waitForUserNode);
 
     // Define the flow with conditional routing
     graph
@@ -198,8 +190,8 @@ export function buildInitialPipelineGraph() {
             [END]: END
         })
 
-        // After user input, continue to requirements
-        .addEdge("wait_for_user", "requirements_agent")
+        // Wait for user node - ends execution to wait for user input
+        .addEdge("wait_for_user", END)
 
         // Requirements agent routing
         .addConditionalEdges("requirements_agent", routeAfterAgent, {
