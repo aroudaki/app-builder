@@ -9,7 +9,7 @@
     ],
     "scripts": {
         "dev": "turbo run dev --parallel",
-        "dev:server": "cd apps/server && npm run dev",
+        "dev:server": "cd apps/server && npm run dev:trace",
         "dev:client": "cd apps/client && npm run dev",
         "test": "turbo run test",
         "test:full": "cd apps/server && npm run test:ci",

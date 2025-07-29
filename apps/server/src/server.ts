@@ -3,10 +3,15 @@ import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import { createAgentHandler } from './api/index.js';
+import { initializeLangSmith, getLangSmithStatus } from './utils/langsmith.js';
 
-// Load environment variables
-dotenv.config();
+// Load environment variables from project root
+dotenv.config({ path: path.resolve(process.cwd(), '../../.env') });
+
+// Initialize LangSmith for observability
+const langsmithClient = initializeLangSmith();
 
 const app = express();
 const server = createServer(app);
@@ -29,11 +34,15 @@ app.use(express.json());
 
 // Health check endpoint
 app.get('/health', (req, res) => {
+    const langsmithStatus = getLangSmithStatus();
     res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
         service: 'AI App Generator Server',
-        version: '1.0.0'
+        version: '1.0.0',
+        observability: {
+            langsmith: langsmithStatus
+        }
     });
 });
 
