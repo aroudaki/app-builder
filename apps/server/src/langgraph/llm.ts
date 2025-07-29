@@ -170,8 +170,7 @@ export function createLLMForAgent(
         maxTokens?: number;
     }
 ): AzureChatOpenAI {
-    // Use O3 for complex coding tasks, GPT-4.1 for everything else
-    const modelType: ModelType = agentType === 'coding' ? 'o3' : 'gpt-4.1';
+    const modelType: ModelType = 'gpt-4.1';
 
     // Agent-specific temperature settings
     const temperature = options?.temperature ?? getDefaultTemperature(agentType);

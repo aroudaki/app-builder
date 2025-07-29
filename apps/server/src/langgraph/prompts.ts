@@ -34,7 +34,7 @@ export const AGENT_MODELS = {
     clarification: 'gpt-4.1',
     requirements: 'gpt-4.1',
     wireframe: 'gpt-4.1',
-    coding: 'gpt-4.1',        // Can be changed to 'o3' for complex tasks
+    coding: 'gpt-4.1',
     modification: 'gpt-4.1'
 } as const;
 

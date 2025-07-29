@@ -7,7 +7,7 @@ import {
     Context
 } from '@shared/index.js';
 import { emitEvent, loadContext, persistSnapshot, generateId } from '../utils/events.js';
-import { selectPipeline } from '../orchestrator/pipeline.js';
+import { runAppBuilder, stateToAGUIContext, aguiContextToState } from '../langgraph/index.js';
 
 /**
  * Handles incoming AG-UI WebSocket messages and orchestrates the pipeline flow
@@ -52,9 +52,18 @@ export async function handleWebSocketMessage(ws: WebSocket, input: RunAgentInput
             state: input.state || {}
         };
 
-        // Select and run pipeline
-        const pipeline = selectPipeline(updatedContext);
-        const finalContext = await pipeline.run(updatedContext);
+        // Convert AG-UI context to LangGraph state
+        const langGraphState = aguiContextToState(updatedContext, input.conversationId);
+
+        // Execute LangGraph App Builder
+        const finalLangGraphState = await runAppBuilder(
+            updatedContext.userInput,
+            langGraphState,
+            input.conversationId
+        );
+
+        // Convert LangGraph state back to AG-UI context
+        const finalContext = stateToAGUIContext(finalLangGraphState);
 
         // Emit state snapshot
         const stateSnapshotEvent: AgUiEvent = {

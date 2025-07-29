@@ -101,9 +101,21 @@ export function routeAfterAgent(state: AppBuilderStateType): string {
             console.log("🎨 Wireframe complete, routing to coding");
             return "coding_agent";
         case "coding":
-            // If coding agent responded without tool calls, it might need to continue
-            console.log("💻 Coding agent responded without tool calls, continuing coding");
-            return "coding_agent";
+            // Check if coding agent has errors or failed multiple times
+            if (state.lastError && state.lastError.agent === "coding") {
+                console.log("❌ Coding agent has errors, ending pipeline");
+                return END;
+            }
+
+            // Check if we have retried too many times
+            if (state.retryCount && state.retryCount >= 3) {
+                console.log("⚠️  Too many retries, ending pipeline");
+                return END;
+            }
+
+            // If coding agent responded without tool calls and no errors, end successfully
+            console.log("💻 Coding agent completed without tool calls, ending pipeline");
+            return END;
         default:
             console.log("🏁 Unknown agent, ending pipeline");
             return END;

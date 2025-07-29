@@ -189,7 +189,7 @@ export interface Question {
     required?: boolean;
 }
 
-// Context Interface for Pipeline Execution
+// Context Interface for Pipeline Execution (Legacy - kept for compatibility)
 export interface Context {
     conversationId: string;
     events: EventEmitter;
@@ -206,25 +206,6 @@ export interface Context {
         timestamp: string;
     };
     retryCount?: number;
-}
-
-// Pipeline Interface
-export interface Pipeline {
-    name: string;
-    description: string;
-    run: (context: Context) => Promise<Context>;
-}
-
-// Agent Configuration Interface
-export interface AgentConfig {
-    name: string;
-    description: string;
-    model: string;
-    temperature?: number;
-    tools?: Tool[];
-    systemPrompt?: string;
-    skipOn?: (context: Context) => boolean;
-    validateOutput?: (output: any) => boolean;
 }
 
 // Utility Functions Type

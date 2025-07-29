@@ -93,10 +93,10 @@ export async function codingAgent(
             .join('\n');
 
         // Create LLM instance with agent-specific configuration
-        // Note: Could switch to 'o3' model for complex coding tasks
+        // Note: Coding agent should NOT stream - only clarification, requirements, and wireframe stream
         const llm = createLLMForAgent('coding', {
             temperature: getAgentTemperature('coding'),
-            streaming: true
+            streaming: false  // Coding agent does not stream
         });
 
         // Get prompt template and format with variables
@@ -108,46 +108,14 @@ export async function codingAgent(
             conversationHistory: conversationHistory || 'No previous conversation'
         });
 
-        // Execute LLM call with streaming
-        console.log("🧠 Calling LLM for code generation with streaming...");
+        // Execute LLM call without streaming (coding agent should not stream)
+        console.log("🧠 Calling LLM for code generation with tool integration...");
 
-        // Create message ID for tracking
-        const messageId = generateId();
-        const events: any[] = [];
+        // Get the response directly without streaming
+        const response = await llm.invoke(formattedPrompt);
+        const fullResponse = response.content?.toString() || "";
 
-        // Start message event
-        events.push(
-            createAGUIEvent("TEXT_MESSAGE_START", state.conversationId, {
-                messageId,
-                role: "assistant"
-            })
-        );
-
-        let fullResponse = "";
-
-        // Stream the response
-        const stream = await llm.stream(formattedPrompt);
-        for await (const chunk of stream) {
-            const delta = chunk.content?.toString() || "";
-            if (delta) {
-                fullResponse += delta;
-
-                // Content event for each chunk
-                events.push(
-                    createAGUIEvent("TEXT_MESSAGE_CONTENT", state.conversationId, {
-                        messageId,
-                        delta
-                    })
-                );
-            }
-        }
-
-        // End message event
-        events.push(
-            createAGUIEvent("TEXT_MESSAGE_END", state.conversationId, {
-                messageId
-            })
-        );
+        console.log("📝 Coding response received, processing...");
 
         // Real tool integration - Execute actual development workflow
         console.log("🔨 Executing real development workflow with tools...");
@@ -251,7 +219,6 @@ export async function codingAgent(
                 'src/components/': '// Generated components',
                 'package.json': '// Updated dependencies'
             },
-            aguiEvents: events,
             retryCount: 0 // Reset retry count on success
         };
 
@@ -358,9 +325,10 @@ export async function codingAgentWithTools(
             .join('\n');
 
         // Create LLM instance with agent-specific configuration optimized for coding
+        // Note: Coding agent should NOT stream - only clarification, requirements, and wireframe stream
         const llm = createLLMForAgent('coding', {
             temperature: getAgentTemperature('coding'),
-            streaming: true
+            streaming: false  // Coding agent does not stream
         });
 
         // Get prompt template and format with variables - enhanced for tool calling
@@ -372,46 +340,17 @@ export async function codingAgentWithTools(
             conversationHistory: conversationHistory || 'No previous conversation'
         });
 
-        // Execute LLM call with streaming
+        // Execute LLM call without streaming (coding agent should not stream)
         console.log("🧠 Calling LLM for code generation with tool integration...");
 
-        // Create message ID for tracking
-        const messageId = generateId();
-        const events: any[] = [];
+        // Get the response directly without streaming
+        const response = await llm.invoke(formattedPrompt);
+        const fullResponse = response.content?.toString() || "";
 
-        // Start message event
-        events.push(
-            createAGUIEvent("TEXT_MESSAGE_START", state.conversationId, {
-                messageId,
-                role: "assistant"
-            })
-        );
+        console.log("📝 Enhanced coding response received, processing...");
 
-        let fullResponse = "";
-
-        // Stream the response
-        const stream = await llm.stream(formattedPrompt);
-        for await (const chunk of stream) {
-            const delta = chunk.content?.toString() || "";
-            if (delta) {
-                fullResponse += delta;
-
-                // Content event for each chunk
-                events.push(
-                    createAGUIEvent("TEXT_MESSAGE_CONTENT", state.conversationId, {
-                        messageId,
-                        delta
-                    })
-                );
-            }
-        }
-
-        // End message event
-        events.push(
-            createAGUIEvent("TEXT_MESSAGE_END", state.conversationId, {
-                messageId
-            })
-        );
+        // Execute comprehensive development workflow with real tools
+        console.log("🔨 Executing comprehensive development workflow...");
 
         // Execute comprehensive development workflow with real tools
         console.log("🔨 Executing comprehensive development workflow...");
@@ -512,13 +451,7 @@ export async function codingAgentWithTools(
                         agent: "coding",
                         error: "Enhanced validation failed",
                         timestamp: new Date().toISOString()
-                    },
-                    aguiEvents: [
-                        createAGUIEvent("ERROR", state.conversationId, {
-                            error: "Enhanced response validation failed, retrying...",
-                            retryCount: (state.retryCount || 0) + 1
-                        })
-                    ]
+                    }
                 };
             }
         }
@@ -546,7 +479,6 @@ export async function codingAgentWithTools(
                 port: devServerResult?.success ? 3001 : undefined,
                 containerId: state.conversationId
             },
-            aguiEvents: events,
             retryCount: 0 // Reset retry count on success
         };
 
@@ -562,13 +494,7 @@ export async function codingAgentWithTools(
                     agent: "coding",
                     error: error instanceof Error ? error.message : String(error),
                     timestamp: new Date().toISOString()
-                },
-                aguiEvents: [
-                    createAGUIEvent("ERROR", state.conversationId, {
-                        error: error instanceof Error ? error.message : String(error),
-                        retryCount: (state.retryCount || 0) + 1
-                    })
-                ]
+                }
             };
         }
 
@@ -590,12 +516,11 @@ export async function codingAgentWithTools(
                 'src/App.tsx': '// Fallback React application structure',
                 'package.json': '// Basic dependencies'
             },
-            aguiEvents: [
-                createAGUIEvent("ERROR", state.conversationId, {
-                    error: "Max retries exceeded, using fallback code generation",
-                    fallback: true
-                })
-            ],
+            lastError: {
+                agent: "coding",
+                error: error instanceof Error ? error.message : String(error),
+                timestamp: new Date().toISOString()
+            },
             retryCount: 0 // Reset for next operation
         };
     }
