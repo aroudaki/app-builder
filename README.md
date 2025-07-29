@@ -68,6 +68,44 @@ Tests run automatically:
 
 Copy `.env.example` to `.env` and configure your Azure credentials.
 
+## VS Code Development
+
+The project includes comprehensive VS Code configuration for debugging and development.
+
+### Quick Start
+1. Open the workspace in VS Code
+2. Install recommended extensions when prompted
+3. Press `F5` to start debugging the server
+
+### Debug Configurations
+- **Debug Server** - Debug Node.js server with hot reload
+- **Debug Server with Tracing** - Debug with LangSmith tracing enabled
+- **Debug Server Tests** - Debug all server tests
+- **Debug Container Tests** - Debug container-specific tests
+- **Debug Browser Tests** - Debug browser automation tests
+- **Debug Full Stack** - Debug server and auto-start client
+
+### VS Code Tasks
+Available via Command Palette (`Cmd+Shift+P` → "Tasks: Run Task"):
+
+**Build**: `build:server`, `build:client`, `build:all`
+**Start**: `start:server`, `start:client`, `start:fullstack`, `start:server:trace`
+**Test**: `test:server`, `test:container`, `test:browser`, `test:ci`, `test:all`
+**Utility**: `clean:all`, `lint:all`, `type-check:all`, `docker:build`, `docker:test`
+
+### Custom Keyboard Shortcuts
+- `Cmd+Shift+D` - Start full stack development
+- `Cmd+Shift+S` - Start server only
+- `Cmd+Shift+C` - Start client only
+- `Cmd+K Cmd+T` - Run all tests
+- `F5` - Start debugging
+
+### Troubleshooting
+Run the debug helper script for environment validation:
+```bash
+./.vscode/debug-helper.sh
+```
+
 ## Architecture Documentation
 
 See `docs/architecture_design_and_execution_plan.md` for detailed technical specifications.

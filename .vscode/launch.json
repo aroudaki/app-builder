@@ -1,0 +1,131 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Server",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/apps/server/src/server.ts",
+            "cwd": "${workspaceFolder}/apps/server",
+            "runtimeExecutable": "npx",
+            "runtimeArgs": [
+                "tsx"
+            ],
+            "env": {
+                "NODE_ENV": "development",
+                "PORT": "3000"
+            },
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "restart": true,
+            "sourceMaps": true,
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "outFiles": [
+                "${workspaceFolder}/apps/server/dist/**/*.js"
+            ]
+        },
+        {
+            "name": "Debug Server with Tracing",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/apps/server/src/server.ts",
+            "cwd": "${workspaceFolder}/apps/server",
+            "runtimeExecutable": "npx",
+            "runtimeArgs": [
+                "tsx"
+            ],
+            "env": {
+                "NODE_ENV": "development",
+                "PORT": "3000",
+                "LANGSMITH_TRACING": "true"
+            },
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "restart": true,
+            "sourceMaps": true,
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "outFiles": [
+                "${workspaceFolder}/apps/server/dist/**/*.js"
+            ]
+        },
+        {
+            "name": "Debug Server Tests",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/apps/server/test/runAllTests.js",
+            "cwd": "${workspaceFolder}/apps/server",
+            "env": {
+                "NODE_ENV": "test"
+            },
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "preLaunchTask": "build:server",
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        },
+        {
+            "name": "Debug Container Tests",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/apps/server/test/containerTest.js",
+            "cwd": "${workspaceFolder}/apps/server",
+            "env": {
+                "NODE_ENV": "test"
+            },
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "preLaunchTask": "build:server",
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        },
+        {
+            "name": "Debug Browser Tests",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/apps/server/test/browserTest.js",
+            "cwd": "${workspaceFolder}/apps/server",
+            "env": {
+                "NODE_ENV": "test"
+            },
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen",
+            "preLaunchTask": "build:server",
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        },
+        {
+            "name": "Attach to Running Server",
+            "type": "node",
+            "request": "attach",
+            "port": 9229,
+            "restart": true,
+            "localRoot": "${workspaceFolder}/apps/server",
+            "remoteRoot": "${workspaceFolder}/apps/server",
+            "skipFiles": [
+                "<node_internals>/**"
+            ]
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Debug Full Stack",
+            "configurations": [
+                "Debug Server"
+            ],
+            "preLaunchTask": "start:client",
+            "stopAll": true
+        }
+    ]
+}

@@ -29,7 +29,6 @@ yarn-error.log*
 **/ai-app-builder-debug/
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo

@@ -1,0 +1,41 @@
+[
+    {
+        "key": "cmd+shift+d",
+        "command": "workbench.action.tasks.runTask",
+        "args": "start:fullstack"
+    },
+    {
+        "key": "cmd+shift+s",
+        "command": "workbench.action.tasks.runTask",
+        "args": "start:server"
+    },
+    {
+        "key": "cmd+shift+c",
+        "command": "workbench.action.tasks.runTask",
+        "args": "start:client"
+    },
+    {
+        "key": "cmd+shift+r",
+        "command": "workbench.action.debug.restart"
+    },
+    {
+        "key": "cmd+k cmd+t",
+        "command": "workbench.action.tasks.runTask",
+        "args": "test:all"
+    },
+    {
+        "key": "cmd+k cmd+s",
+        "command": "workbench.action.tasks.runTask",
+        "args": "test:server"
+    },
+    {
+        "key": "cmd+k cmd+c",
+        "command": "workbench.action.tasks.runTask",
+        "args": "test:container"
+    },
+    {
+        "key": "cmd+k cmd+b",
+        "command": "workbench.action.tasks.runTask",
+        "args": "test:browser"
+    }
+]

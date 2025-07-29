@@ -1,0 +1,93 @@
+{
+    "folders": [
+        {
+            "name": "AI App Generator",
+            "path": "."
+        }
+    ],
+    "settings": {
+        "typescript.preferences.includePackageJsonAutoImports": "on",
+        "typescript.suggest.autoImports": true,
+        "typescript.updateImportsOnFileMove.enabled": "always",
+        "eslint.workingDirectories": [
+            "apps/server",
+            "apps/client",
+            "libs/shared"
+        ],
+        "eslint.validate": [
+            "javascript",
+            "javascriptreact",
+            "typescript",
+            "typescriptreact"
+        ],
+        "files.exclude": {
+            "**/node_modules": true,
+            "**/dist": true,
+            "**/build": true,
+            "**/.turbo": true,
+            "**/coverage": true
+        },
+        "search.exclude": {
+            "**/node_modules": true,
+            "**/dist": true,
+            "**/build": true,
+            "**/.turbo": true,
+            "**/coverage": true,
+            "**/ai-app-builder-debug": true
+        },
+        "files.watcherExclude": {
+            "**/node_modules/**": true,
+            "**/dist/**": true,
+            "**/build/**": true,
+            "**/.turbo/**": true,
+            "**/coverage/**": true
+        },
+        "editor.codeActionsOnSave": {
+            "source.fixAll.eslint": "explicit"
+        },
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "[typescript]": {
+            "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[typescriptreact]": {
+            "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[javascript]": {
+            "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[json]": {
+            "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "debug.allowBreakpointsEverywhere": true,
+        "debug.node.autoAttach": "off",
+        "debug.terminal.clearBeforeReusing": true,
+        "debug.console.fontSize": 14,
+        "debug.console.lineHeight": 18,
+        "terminal.integrated.defaultProfile.osx": "zsh",
+        "terminal.integrated.fontSize": 14,
+        "emmet.includeLanguages": {
+            "typescript": "html",
+            "typescriptreact": "html"
+        }
+    },
+    "extensions": {
+        "recommendations": [
+            "esbenp.prettier-vscode",
+            "ms-vscode.vscode-typescript-next",
+            "dbaeumer.vscode-eslint",
+            "bradlc.vscode-tailwindcss",
+            "ms-vscode.vscode-json",
+            "ms-playwright.playwright",
+            "ms-vscode-remote.remote-containers"
+        ]
+    },
+    "launch": {
+        "version": "0.2.0",
+        "configurations": []
+    },
+    "tasks": {
+        "version": "2.0.0",
+        "tasks": []
+    }
+}
